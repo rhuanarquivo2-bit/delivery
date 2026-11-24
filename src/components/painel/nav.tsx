@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BadgePercent,
+  Gift,
   Bike,
   ClipboardList,
   Home,
@@ -26,6 +27,7 @@ const ITEMS: Item[] = [
   { href: "/painel/promocoes", label: "Promoções", icon: BadgePercent },
   { href: "/painel/cupons", label: "Cupons", icon: Ticket },
   { href: "/painel/clientes", label: "Clientes", icon: Users },
+  { href: "/painel/fidelidade", label: "Fidelidade", icon: Gift },
   { href: "/painel/desempenho", label: "Desempenho", icon: TrendingUp },
   { href: "/painel/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/painel/motoboys", label: "Motoboys", icon: Bike },

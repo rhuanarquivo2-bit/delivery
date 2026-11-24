@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Banknote,
   Bike,
@@ -22,11 +22,13 @@ import {
 } from "lucide-react";
 import { checkCoupon, lookupCustomer, placeOrder } from "@/app/loja/[slug]/actions";
 import { CartSuggestions } from "@/components/loja/cart-suggestions";
+import { LoyaltyBox } from "@/components/loja/loyalty-box";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
+import { type LoyaltyReward, rewardDiscount } from "@/lib/loyalty";
 import { rememberOrders } from "@/lib/my-orders";
 import { formatCep, lookupCep, matchZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
@@ -160,7 +162,13 @@ export default function CheckoutFormInner({
   // cupom de entrega grátis não vale para retirada
   const couponUsable = coupon && !(coupon.kind === "free_delivery" && fulfillment === "pickup") ? coupon : null;
   const discount = couponUsable ? couponDiscount(couponUsable, subtotal, fee) : null;
-  const total = Math.max(subtotal + fee - (discount ?? 0), 0);
+  const [reward, setReward] = useState<{ reward: LoyaltyReward; tokens: string[] } | null>(null);
+  const chooseReward = useCallback(
+    (r: LoyaltyReward | null, tokens: string[]) => setReward(r ? { reward: r, tokens } : null),
+    [],
+  );
+  const rewardOff = rewardDiscount(reward?.reward ?? null, subtotal, discount ?? 0);
+  const total = Math.max(subtotal + fee - (discount ?? 0) - rewardOff, 0);
   const belowMinimum = subtotal < store.min_order_cents;
   const needsCpf = payment === "pix_online" && store.pix_provider === "asaas";
   const changeCents = needsChange ? parseBRLToCents(changeFor) : null;
@@ -320,6 +328,8 @@ export default function CheckoutFormInner({
         notes,
         // cupom abaixo do valor mínimo dele não vai (o resumo já avisa)
         coupon_code: couponUsable && discount !== null ? couponUsable.code : "",
+        loyalty_reward_id: reward?.reward.id ?? "",
+        loyalty_tokens: reward?.tokens ?? [],
         items: lines.map((l) => ({
           product_id: l.selection.productId,
           size_id: l.selection.sizeId,
@@ -758,6 +768,16 @@ export default function CheckoutFormInner({
           {couponError ? <p className="mt-2 text-sm text-red-600">{couponError}</p> : null}
         </Block>
 
+        <LoyaltyBox
+          storeId={store.id}
+          slug={store.slug}
+          phoneDigits={phoneDigits}
+          subtotalCents={subtotal}
+          couponDiscountCents={discount ?? 0}
+          selected={reward?.reward ?? null}
+          onSelect={chooseReward}
+        />
+
         <Block title="Resumo">
           <dl className="grid gap-1.5 text-sm">
             <Row label="Subtotal" value={formatBRL(subtotal)} />
@@ -765,11 +785,18 @@ export default function CheckoutFormInner({
               <Row label="Taxa de entrega" value={zone ? (fee ? formatBRL(fee) : "Grátis") : "Escolha o bairro"} />
             ) : null}
             {discount ? <Row label={`Cupom ${couponUsable!.code}`} value={`- ${formatBRL(discount)}`} tone="success" /> : null}
+            {reward ? (
+              <Row
+                label={`Fidelidade: ${reward.reward.name}`}
+                value={reward.reward.kind === "percent" ? `- ${formatBRL(rewardOff)}` : "Brinde"}
+                tone="success"
+              />
+            ) : null}
             <Row label="Total" value={formatBRL(total)} strong />
           </dl>
-          {promoSavings > 0 || discount ? (
+          {promoSavings > 0 || discount || rewardOff ? (
             <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
-              Você está economizando {formatBRL(promoSavings + (discount ?? 0))} neste pedido.
+              Você está economizando {formatBRL(promoSavings + (discount ?? 0) + rewardOff)} neste pedido.
             </p>
           ) : null}
           {belowMinimum ? (

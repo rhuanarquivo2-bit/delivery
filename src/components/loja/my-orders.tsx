@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { loadOrderTokens, rememberOrders, splitOrders, type OrderSummary } from "@/lib/my-orders";
 import { formatPhone } from "@/lib/utils";
+import { LoyaltyCard } from "./loyalty-card";
 import { OrderSummaryCard } from "./order-summary-card";
 
 /** Tela "Meus pedidos": pedidos deste aparelho + entrar com celular e senha. */
@@ -56,6 +57,7 @@ export function MyOrders({ storeId, slug }: { storeId: string; slug: string }) {
 
   return (
     <div className="grid gap-6">
+      <LoyaltyCard storeId={storeId} tokens={orders.map((o) => o.token)} />
       {active.length ? (
         <section className="grid gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Em andamento</h2>
