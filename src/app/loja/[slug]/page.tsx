@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Bike, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-react";
+import { DemoStoreBanner } from "@/components/loja/demo-banner";
+import { StoreMenu } from "@/components/loja/store-menu";
+import { getMenu } from "@/lib/menu";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { isOpenNow, shortTime, WEEKDAYS } from "@/lib/hours";
 import { getPublicStore } from "@/lib/stores";
@@ -25,6 +28,7 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
   if (!data) notFound();
 
   const { store, hours, zones } = data;
+  const menu = await getMenu(store.id, { publicOnly: true });
   const open = isOpenNow(hours, store.open_override);
   const activeZones = zones.filter((z) => z.active);
   const minFee = activeZones.length ? Math.min(...activeZones.map((z) => z.fee_cents)) : null;
@@ -39,8 +43,9 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
 
   return (
     <div className="flex-1" style={{ "--brand": store.primary_color } as React.CSSProperties}>
+      {store.is_demo ? <DemoStoreBanner /> : null}
       <div className="h-32 bg-brand sm:h-44" />
-      <main className="mx-auto -mt-14 max-w-3xl px-4 pb-16">
+      <main className="mx-auto -mt-14 max-w-3xl px-4 pb-28">
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="flex items-start gap-4">
             <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border-4 border-card bg-muted shadow-sm sm:size-24">
@@ -88,15 +93,15 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
           </div>
         </section>
 
-        <section className="mt-6 rounded-3xl border border-dashed border-border bg-card/50 px-6 py-12 text-center">
-          <UtensilsCrossed className="mx-auto size-8 text-brand" />
-          <h2 className="mt-3 text-lg font-semibold">Cardápio chegando</h2>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            Em breve você poderá montar seu pedido por aqui.
-          </p>
-        </section>
+        {!open ? (
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            Estamos fechados agora. Você pode ver o cardápio, mas os pedidos abrem no próximo horário de funcionamento.
+          </div>
+        ) : null}
 
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+        <StoreMenu slug={store.slug} categories={menu} canOrder={open} />
+
+        <div className="mt-10 grid gap-6 sm:grid-cols-2">
           <section className="rounded-3xl border border-border bg-card p-6">
             <h2 className="flex items-center gap-2 font-semibold">
               <Clock className="size-4 text-brand" /> Horários

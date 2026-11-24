@@ -11,11 +11,14 @@ export function PainelShell({
   storeName,
   email,
   brandColor,
+  topBar,
   children,
 }: {
   storeName: string | null;
   email: string;
   brandColor?: string;
+  /** Faixa acima do conteúdo (ex.: barra do modo demonstração). */
+  topBar?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -53,6 +56,7 @@ export function PainelShell({
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {topBar}
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur md:hidden">
           <Button variant="ghost" size="icon" aria-label="Abrir menu" onClick={() => setOpen((v) => !v)}>
             {open ? <X /> : <Menu />}
