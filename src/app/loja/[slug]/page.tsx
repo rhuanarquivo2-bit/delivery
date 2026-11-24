@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Bike, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-react";
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
 import { StoreMenu } from "@/components/loja/store-menu";
-import { getMenu } from "@/lib/menu";
+import { getBestSellers, getMenu } from "@/lib/menu";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { isOpenNow, shortTime, WEEKDAYS } from "@/lib/hours";
 import { scheduleOptions } from "@/lib/schedule";
@@ -29,7 +29,7 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
   if (!data) notFound();
 
   const { store, hours, zones } = data;
-  const menu = await getMenu(store.id, { publicOnly: true });
+  const [menu, bestSellers] = await Promise.all([getMenu(store.id, { publicOnly: true }), getBestSellers(store.id)]);
   const open = isOpenNow(hours, store.open_override);
   const nextSlot = store.accepts_scheduled
     ? (scheduleOptions({
@@ -125,6 +125,7 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
           categories={menu}
           canOrder={open || nextSlot !== null}
           promoPopup={store.show_promo_popup}
+          bestSellers={bestSellers}
         />
 
         <div className="mt-10 grid gap-6 sm:grid-cols-2">

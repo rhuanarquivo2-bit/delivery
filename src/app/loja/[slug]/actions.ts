@@ -228,3 +228,58 @@ export async function checkCoupon(input: z.input<typeof quoteSchema>): Promise<C
     },
   };
 }
+
+/**
+ * A página do pedido pergunta a cada poucos segundos: devolve só uma "marca" do estado
+ * do pedido. Quando a marca muda, a página se atualiza inteira.
+ */
+export async function orderStamp(token: string): Promise<string | null> {
+  if (!z.string().uuid().safeParse(token).success) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("get_public_order", { p_token: token });
+  const order = data as { status?: string; payment_status?: string; scheduled_for?: string | null } | null;
+  if (!order?.status) return null;
+  return [order.status, order.payment_status, order.scheduled_for ?? ""].join("|");
+}
+
+export type SavedCustomerData = {
+  name: string;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  reference: string | null;
+  zoneId: string | null;
+  cep: string | null;
+  orders: number;
+};
+
+/** Checkout: dados do último pedido feito com esse celular nessa loja. */
+export async function lookupCustomer(storeId: string, phone: string): Promise<SavedCustomerData | null> {
+  const digits = phone.replace(/\D/g, "");
+  if (!z.string().uuid().safeParse(storeId).success || digits.length < 10 || digits.length > 11) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("customer_lookup", { p_store_id: storeId, p_phone: digits });
+  const row = (Array.isArray(data) ? data[0] : null) as
+    | {
+        name: string;
+        street: string | null;
+        number: string | null;
+        complement: string | null;
+        reference: string | null;
+        delivery_zone_id: string | null;
+        zip: string | null;
+        orders: number;
+      }
+    | null;
+  if (!row?.name) return null;
+  return {
+    name: row.name,
+    street: row.street,
+    number: row.number,
+    complement: row.complement,
+    reference: row.reference,
+    zoneId: row.delivery_zone_id,
+    cep: row.zip,
+    orders: Number(row.orders) || 0,
+  };
+}

@@ -128,3 +128,10 @@ export function couponLabel(coupon: Pick<AppliedCoupon, "kind" | "value">, forma
   if (coupon.kind === "fixed") return `${formatMoney(coupon.value)} de desconto`;
   return "Entrega grátis";
 }
+
+/** Desconto em % para o selo do cartão (-20%). Null quando não há desconto que valha mostrar. */
+export function discountPercent(full: number | null, from: number | null) {
+  if (full === null || from === null || full <= 0 || from >= full) return null;
+  const pct = Math.round(((full - from) / full) * 100);
+  return pct >= 1 ? pct : null;
+}

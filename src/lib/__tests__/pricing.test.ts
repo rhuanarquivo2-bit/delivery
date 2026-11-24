@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { nextStatus } from "../order-status";
-import { changeDue, flavorsPrice, optionErrors, unitPrice } from "../pricing";
+import { changeDue, discountPercent, flavorsPrice, optionErrors, unitPrice } from "../pricing";
 import type { Category } from "../types";
 
 const pizzas: Category = {
@@ -98,5 +98,19 @@ describe("troco e status", () => {
     expect(nextStatus("ready", "delivery")).toBe("out_for_delivery");
     expect(nextStatus("ready", "pickup")).toBe("delivered");
     expect(nextStatus("delivered", "pickup")).toBeNull();
+  });
+});
+
+describe("discountPercent", () => {
+  it("calcula o selo de desconto arredondado", () => {
+    expect(discountPercent(5000, 4000)).toBe(20);
+    expect(discountPercent(3990, 2990)).toBe(25);
+  });
+  it("não mostra selo sem desconto", () => {
+    expect(discountPercent(3000, 3000)).toBeNull();
+    expect(discountPercent(null, 3000)).toBeNull();
+    expect(discountPercent(3000, null)).toBeNull();
+    expect(discountPercent(0, 0)).toBeNull();
+    expect(discountPercent(10000, 9990)).toBeNull();
   });
 });

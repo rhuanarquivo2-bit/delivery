@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CalendarClock, CheckCircle2, Clock, MessageCircle, XCircle } from "lucide-react";
-import { AutoRefresh } from "@/components/loja/auto-refresh";
+import { ArrowLeft, CalendarClock, CheckCircle2, Clock, MessageCircle, ShoppingBag, XCircle } from "lucide-react";
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
+import { OrderLiveUpdates } from "@/components/loja/order-live-updates";
 import { PixPayment } from "@/components/loja/pix-payment";
 import { TrackPurchase } from "@/components/loja/store-tracking";
 import { formatScheduled } from "@/lib/schedule";
@@ -81,11 +81,19 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   return (
     <div className="flex-1" style={{ "--brand": order.store.primary_color } as React.CSSProperties}>
       {isDemo ? <DemoStoreBanner /> : null}
-      {!finished && !awaitingPix ? <AutoRefresh seconds={15} /> : null}
+      {!finished && !awaitingPix ? (
+        <OrderLiveUpdates token={token} stamp={[order.status, order.payment_status, order.scheduled_for ?? ""].join("|")} />
+      ) : null}
       {hasTracking && !awaitingPix && !pixExpired && !cancelled ? (
         <TrackPurchase orderKey={token} totalCents={order.total_cents} />
       ) : null}
-      <main className="mx-auto grid w-full max-w-xl gap-5 px-4 py-8">
+      <main className="mx-auto grid w-full max-w-xl gap-5 px-4 py-6">
+        <Link
+          href={`/loja/${order.store.slug}`}
+          className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium hover:border-brand hover:text-brand"
+        >
+          <ArrowLeft className="size-4" /> Voltar ao cardápio
+        </Link>
         <div className="text-center">
           <p className="text-sm text-muted-foreground">{order.store.name}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Pedido #{order.number}</h1>
@@ -229,6 +237,15 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
           </p>
         </section>
 
+        {!awaitingPix && !pixExpired ? (
+          <Link
+            href={`/loja/${order.store.slug}`}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-brand-foreground shadow-sm hover:opacity-90"
+          >
+            <ShoppingBag className="size-4" /> {finished ? "Fazer um novo pedido" : "Pedir mais alguma coisa"}
+          </Link>
+        ) : null}
+
         {whatsapp ? (
           <a
             href={whatsapp}
@@ -240,7 +257,7 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
           </a>
         ) : null}
         <p className="text-center text-xs text-muted-foreground">
-          Guarde este link para acompanhar seu pedido. A página se atualiza sozinha.
+          {finished ? "Obrigado pela preferência!" : "Guarde este link para acompanhar seu pedido. A página se atualiza sozinha."}
         </p>
       </main>
     </div>

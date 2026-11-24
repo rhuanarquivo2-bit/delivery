@@ -60,3 +60,10 @@ export async function getPromotions(storeId: string): Promise<Promotion[]> {
     .order("created_at", { ascending: false });
   return (data as Promotion[] | null) ?? [];
 }
+
+/** Produtos mais vendidos da loja nos últimos 30 dias (selo "Mais pedido" no site). */
+export async function getBestSellers(storeId: string, limit = 3): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("best_sellers", { p_store_id: storeId, p_limit: limit });
+  return Array.isArray(data) ? (data as unknown[]).filter((id): id is string => typeof id === "string") : [];
+}
