@@ -67,10 +67,18 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   const { data } = await supabase.rpc("get_public_order", { p_token: token });
   const order = data as PublicOrder | null;
   if (!order || order.store.slug !== slug) notFound();
-  const [storeData, { data: pinData }] = await Promise.all([
+  const [storeData, { data: pinData }, { data: loyaltyData }] = await Promise.all([
     getPublicStore(slug).then((d) => d?.store),
     supabase.rpc("customer_pin_status", { p_token: token }),
+    supabase.rpc("get_public_order_loyalty", { p_token: token }),
   ]);
+  const loyalty = loyaltyData as {
+    reward_name: string | null;
+    points_used: number | null;
+    points_earned: number | null;
+    enabled: boolean;
+    points_to_earn: number | null;
+  } | null;
   const pin = pinData as { has_pin: boolean; phone_end: string } | null;
   const isDemo = storeData?.is_demo ?? false;
   const hasTracking = Boolean(storeData?.facebook_pixel_id || storeData?.google_analytics_id);
@@ -222,6 +230,12 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
                 <dd>- {formatBRL(order.discount_cents)}</dd>
               </div>
             ) : null}
+            {loyalty?.reward_name ? (
+              <div className="flex justify-between text-emerald-700">
+                <dt>Fidelidade: {loyalty.reward_name}</dt>
+                <dd>{loyalty.points_used} pontos</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between text-base font-bold">
               <dt>Total</dt>
               <dd>{formatBRL(order.total_cents)}</dd>
@@ -243,6 +257,21 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
               : ""}
           </p>
         </section>
+
+        {loyalty?.enabled && !cancelled && !awaitingPix && !pixExpired ? (
+          loyalty.points_earned ? (
+            <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800">
+              Você ganhou {loyalty.points_earned} pontos com este pedido!{" "}
+              <Link href={`/loja/${order.store.slug}/pedidos`} className="underline">
+                Ver meus pontos
+              </Link>
+            </p>
+          ) : loyalty.points_to_earn ? (
+            <p className="rounded-2xl bg-brand/5 px-4 py-3 text-center text-sm">
+              Este pedido vale <strong>{loyalty.points_to_earn} pontos</strong> no programa de fidelidade quando for entregue.
+            </p>
+          ) : null
+        ) : null}
 
         {!awaitingPix && !pixExpired ? (
           <Link

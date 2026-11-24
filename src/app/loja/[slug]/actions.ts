@@ -6,6 +6,7 @@ import { createPixForOrder, PaymentError, syncOrderPayment } from "@/lib/payment
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { AppliedCoupon } from "@/lib/pricing";
+import type { LoyaltyStatus } from "@/lib/loyalty";
 import type { OrderSummary } from "@/lib/my-orders";
 import type { OrderQuote } from "@/lib/types";
 import { formatBRL, parseBRLToCents } from "@/lib/utils";
@@ -43,6 +44,9 @@ const ERRORS: Record<string, string> = {
   agendamento_cedo: "Esse horário ficou perto demais. Escolha um horário mais tarde.",
   agendamento_longe: "Esse dia está longe demais para agendar. Escolha uma data mais próxima.",
   agendamento_fora_horario: "A loja não funciona nesse horário. Escolha outro.",
+  recompensa_invalida: "Essa recompensa não está mais disponível. Escolha outra.",
+  pontos_insuficientes: "Você não tem pontos suficientes para essa recompensa.",
+  pontos_sem_acesso: "Para usar seus pontos, entre em Meus pedidos com seu celular e senha.",
 };
 
 function errorMessage(error: { message: string; details?: string | null }) {
@@ -85,6 +89,8 @@ const schema = z.object({
   change_for: z.string().default(""),
   notes: z.string().max(300).default(""),
   coupon_code: z.string().trim().max(20).default(""),
+  loyalty_reward_id: z.string().uuid().or(z.literal("")).default(""),
+  loyalty_tokens: z.array(z.string().uuid()).max(50).default([]),
   items: z
     .array(
       z.object({
@@ -136,6 +142,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       change_for_cents: changeFor,
       notes: o.notes,
       coupon_code: o.coupon_code || null,
+      ...(o.loyalty_reward_id ? { loyalty_reward_id: o.loyalty_reward_id, loyalty_tokens: o.loyalty_tokens } : {}),
       items: o.items,
     },
   });
@@ -363,4 +370,20 @@ export async function cartSuggestions(storeId: string, productIds: string[]): Pr
     reason: r.reason,
     sourceProductId: r.source_product_id,
   }));
+}
+
+// ---- Fidelidade ---------------------------------------------------------------
+
+/** Programa da loja e saldo do cliente (o aparelho prova o celular com os links dos pedidos). */
+export async function loyaltyStatus(storeId: string, phone: string | null, tokens: string[]): Promise<LoyaltyStatus> {
+  const ids = z.array(z.string().uuid()).max(50).safeParse(tokens);
+  if (!z.string().uuid().safeParse(storeId).success || !ids.success) return { enabled: false };
+  const digits = phone?.replace(/\D/g, "") ?? "";
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("loyalty_status", {
+    p_store_id: storeId,
+    p_phone: digits.length >= 10 ? digits : null,
+    p_tokens: ids.data,
+  });
+  return (data as LoyaltyStatus | null) ?? { enabled: false };
 }

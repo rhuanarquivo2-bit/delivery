@@ -33,6 +33,11 @@ export type Store = {
   upsell_enabled: boolean;
   /** Até 3 produtos que o lojista quer sempre sugerir primeiro. */
   upsell_product_ids: string[];
+  /** Programa de fidelidade. */
+  loyalty_enabled: boolean;
+  loyalty_cents_per_point: number;
+  loyalty_welcome_points: number;
+  loyalty_expiry_days: number;
   created_at: string;
   updated_at: string;
 };
