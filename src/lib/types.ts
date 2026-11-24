@@ -29,6 +29,10 @@ export type Store = {
   print_kitchen_copy: boolean;
   facebook_pixel_id: string | null;
   google_analytics_id: string | null;
+  /** Sugestões no carrinho ("quem pede X costuma levar Y"). */
+  upsell_enabled: boolean;
+  /** Até 3 produtos que o lojista quer sempre sugerir primeiro. */
+  upsell_product_ids: string[];
   created_at: string;
   updated_at: string;
 };

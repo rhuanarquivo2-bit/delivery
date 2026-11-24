@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { checkCoupon, lookupCustomer, placeOrder } from "@/app/loja/[slug]/actions";
+import { CartSuggestions } from "@/components/loja/cart-suggestions";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -31,7 +32,7 @@ import { formatCep, lookupCep, matchZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
 import { scheduleOptions } from "@/lib/schedule";
-import { trackBeginCheckout } from "@/lib/tracking";
+import { trackAddToCart, trackBeginCheckout } from "@/lib/tracking";
 import type { Category, StoreHour } from "@/lib/types";
 import { cn, formatBRL, formatPhone, parseBRLToCents } from "@/lib/utils";
 
@@ -414,6 +415,22 @@ export default function CheckoutFormInner({
             ))}
           </ul>
         </Block>
+
+        <CartSuggestions
+          storeId={store.id}
+          menu={menu}
+          cartProductIds={cart.lines.map((l) => l.selection.productId)}
+          canOrder={open || store.accepts_scheduled}
+          onAdd={(line) => {
+            cart.add(line);
+            trackAddToCart({
+              id: line.selection.productId,
+              name: line.title,
+              price_cents: line.unitPriceCents,
+              quantity: line.selection.quantity,
+            });
+          }}
+        />
 
         <Block title="Como você quer receber?">
           <div className="grid grid-cols-2 gap-3">

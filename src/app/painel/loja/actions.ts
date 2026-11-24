@@ -130,6 +130,11 @@ const checkbox = z
   .optional()
   .transform((v) => v === "on");
 
+const optionalId = z
+  .string()
+  .optional()
+  .transform((v) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null));
+
 const siteSchema = z.object({
   accepts_scheduled: checkbox,
   schedule_days_ahead: z.coerce.number().int().min(0, "De 0 a 7 dias.").max(7, "De 0 a 7 dias."),
@@ -146,15 +151,31 @@ const siteSchema = z.object({
     .toUpperCase()
     .refine((v) => v === "" || /^G-[A-Z0-9]{4,16}$/.test(v), "O ID do Analytics começa com G- (ex.: G-AB12CD34EF).")
     .transform((v) => (v === "" ? null : v)),
+  upsell_enabled: checkbox,
+  upsell_1: optionalId,
+  upsell_2: optionalId,
+  upsell_3: optionalId,
 });
 
 export async function updateSiteSettings(_prev: FormState, formData: FormData): Promise<FormState> {
   const { store } = await requireMyStore();
   const parsed = siteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fieldErrors(parsed.error);
+  const { upsell_1, upsell_2, upsell_3, ...data } = parsed.data;
 
   const supabase = await createClient();
-  const { error } = await supabase.from("stores").update(parsed.data).eq("id", store.id);
+  // sugestões fixas: até 3, sem repetir, só produtos desta loja
+  const wanted = [...new Set([upsell_1, upsell_2, upsell_3].filter((id): id is string => Boolean(id)))];
+  let upsell_product_ids: string[] = [];
+  if (wanted.length) {
+    const { data: found } = await supabase.from("products").select("id").eq("store_id", store.id).in("id", wanted);
+    const ok = new Set((found ?? []).map((p) => p.id as string));
+    upsell_product_ids = wanted.filter((id) => ok.has(id));
+  }
+  const { error } = await supabase
+    .from("stores")
+    .update({ ...data, upsell_product_ids })
+    .eq("id", store.id);
   if (error) return { message: "Não foi possível salvar. Tente de novo." };
   revalidatePath("/painel", "layout");
   revalidatePath(`/loja/${store.slug}`, "layout");

@@ -346,3 +346,21 @@ export async function loginMyOrders(storeId: string, phone: string, pin: string)
     message: `Senha incorreta. ${r.left === 1 ? "Mais 1 erro e o acesso fica bloqueado por um tempo." : `Você ainda tem ${r.left} tentativas.`}`,
   };
 }
+
+// ---- Sugestões no carrinho ----------------------------------------------------
+
+export type CartSuggestion = { productId: string; reason: "pinned" | "together" | "popular"; sourceProductId: string | null };
+
+/** "Quem pede X costuma levar Y": até 3 produtos para sugerir no checkout. */
+export async function cartSuggestions(storeId: string, productIds: string[]): Promise<CartSuggestion[]> {
+  const ids = z.array(z.string().uuid()).min(1).max(30).safeParse([...new Set(productIds)]);
+  if (!z.string().uuid().safeParse(storeId).success || !ids.success) return [];
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("cart_suggestions", { p_store_id: storeId, p_product_ids: ids.data });
+  if (!Array.isArray(data)) return [];
+  return (data as { product_id: string; reason: CartSuggestion["reason"]; source_product_id: string | null }[]).map((r) => ({
+    productId: r.product_id,
+    reason: r.reason,
+    sourceProductId: r.source_product_id,
+  }));
+}
