@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
-import { checkPixPayment } from "@/app/loja/[slug]/actions";
+import { checkPixPayment, simulateDemoPix } from "@/app/loja/[slug]/actions";
 import { Button } from "@/components/ui/button";
 import { formatBRL } from "@/lib/utils";
 
@@ -14,12 +14,15 @@ export function PixPayment({
   qrBase64,
   expiresAt,
   totalCents,
+  demo = false,
 }: {
   token: string;
   qrCode: string;
   qrBase64: string | null;
   expiresAt: string;
   totalCents: number;
+  /** Loja de demonstração: mostra o botão que simula o pagamento. */
+  demo?: boolean;
 }) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -70,6 +73,24 @@ export function PixPayment({
           Abra o app do seu banco, escolha Pix copia e cola (ou leia o QR Code) e confirme.
         </p>
       </div>
+
+      {demo ? (
+        <div className="grid gap-2 rounded-xl border border-dashed border-stone-400 bg-stone-50 p-3 text-sm">
+          <p>Isto é uma demonstração: o QR Code abaixo não cobra nada. Toque para fazer de conta que o cliente pagou.</p>
+          <Button
+            variant="outline"
+            disabled={checking}
+            onClick={() =>
+              startCheck(async () => {
+                await simulateDemoPix(token);
+                router.refresh();
+              })
+            }
+          >
+            {checking ? "Pagando..." : "Simular pagamento"}
+          </Button>
+        </div>
+      ) : null}
 
       <Button size="lg" onClick={copy} className="h-14 text-base">
         {copied ? <Check /> : <Copy />}

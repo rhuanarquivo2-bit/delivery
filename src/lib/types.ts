@@ -17,7 +17,9 @@ export type Store = {
   prep_time_minutes: number;
   is_demo: boolean;
   /** Pix online: conta conectada no painel (null = loja não recebe Pix online). */
-  pix_provider: "mercadopago" | "asaas" | null;
+  pix_provider: "mercadopago" | "asaas" | "demo" | null;
+  /** Leituras de cardápio por foto já usadas (só conta em loja de demonstração). */
+  demo_ai_reads: number;
   created_at: string;
   updated_at: string;
 };
@@ -153,6 +155,9 @@ export type Order = {
   paid_at: string | null;
   customer_document: string | null;
   change_for_cents: number | null;
+  courier_id: string | null;
+  courier_fee_cents: number | null;
+  assigned_at: string | null;
   notes: string | null;
   cancel_reason: string | null;
   created_at: string;
@@ -220,4 +225,80 @@ export type OrderQuote = {
   coupon_min_order_cents: number | null;
   coupon_max_discount_cents: number | null;
   coupon_description: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Motoboys
+// ---------------------------------------------------------------------------
+export type CourierFeeMode = "fixed" | "zone_fee";
+
+export type Courier = {
+  id: string;
+  store_id: string;
+  name: string;
+  phone: string | null;
+  pix_key: string | null;
+  fee_mode: CourierFeeMode;
+  fee_cents: number;
+  daily_rate_cents: number;
+  active: boolean;
+  access_token: string;
+  created_at: string;
+};
+
+/** Resumo de um dia de um motoboy (courier_day_json). */
+export type CourierDay = {
+  day: string;
+  deliveries: number;
+  fees_cents: number;
+  daily_rate_cents: number;
+  earned_cents: number;
+  cash_cents: number;
+  card_cents: number;
+  pix_delivery_cents: number;
+  paid_cents: number | null;
+  paid_at: string | null;
+};
+
+export type CourierReportRow = CourierDay & { courier_id: string; courier_name: string };
+
+/** Pedido como o motoboy vê no site dele. */
+export type CourierOrder = {
+  id: string;
+  number: number;
+  status: OrderStatus;
+  customer_name: string;
+  customer_phone: string;
+  address_street: string | null;
+  address_number: string | null;
+  address_complement: string | null;
+  address_district: string | null;
+  address_reference: string | null;
+  notes: string | null;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  total_cents: number;
+  change_for_cents: number | null;
+  courier_fee_cents: number | null;
+  items_count: number;
+  assigned_at: string | null;
+  dispatched_at: string | null;
+  delivered_at: string | null;
+};
+
+export type CourierPortal = {
+  courier: { name: string; fee_mode: CourierFeeMode; fee_cents: number; daily_rate_cents: number };
+  store: {
+    name: string;
+    whatsapp: string | null;
+    phone: string | null;
+    primary_color: string;
+    logo_url: string | null;
+    address_city: string | null;
+    address_state: string | null;
+  };
+  today: string;
+  open: CourierOrder[];
+  delivered_today: CourierOrder[];
+  days: CourierDay[];
 };

@@ -51,7 +51,8 @@ const createSchema = z.object({
 });
 
 export async function createStore(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireUser();
+  const user = await requireUser();
+  if (user.isAnonymous) return { message: "Na demonstração não dá para criar loja. Crie sua conta primeiro." };
   if (await getMyStore()) redirect("/painel");
 
   const raw = Object.fromEntries(formData);

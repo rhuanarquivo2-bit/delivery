@@ -11,6 +11,8 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    2. `20261124010000_cardapio_pedidos.sql` (cardápio e pedidos; também liga os pedidos ao vivo)
    3. `20261124020000_promocoes_cupons.sql` (promoções, cupons e importação do cardápio por foto)
    4. `20261124030000_pix_financeiro.sql` (Pix online, contas de recebimento e relatório financeiro)
+   5. `20261124040000_motoboys.sql` (motoboys, entregas, site do motoboy e acerto)
+   6. `20261124050000_demonstracao.sql` (modo demonstração)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:
@@ -49,3 +51,22 @@ Sem a chave secreta, o checkout só oferece pagamento na entrega. Em desenvolvim
 (`http://localhost`) não há aviso automático: a página do pedido confere o pagamento sozinha
 a cada 5 segundos, então dá para testar com a conta de testes do Mercado Pago (`TEST-...`)
 ou com o sandbox do Asaas (`$aact_hmlg_...`).
+
+## Modo demonstração
+
+A demonstração (`/demo`) cria uma loja de exemplo sem pedir cadastro. Para funcionar:
+
+1. Em **Authentication > Sign In / Providers**, ligue **Allow anonymous sign-ins**.
+2. Recomendado: em **Authentication > Attack Protection**, ligue o **captcha**, para que robôs
+   não criem demonstrações em massa.
+3. O Pix simulado da demonstração usa a mesma `SUPABASE_SECRET_KEY` do Pix online.
+   Sem ela, a demonstração funciona com pagamento na entrega.
+
+As lojas de demonstração são apagadas sozinhas depois de 24 horas. Os visitantes anônimos
+continuam na lista de usuários; para limpar os antigos, ative a extensão **pg_cron**
+(**Database > Extensions**) e rode uma vez no SQL Editor:
+
+```sql
+select cron.schedule('limpar-visitantes', '0 4 * * *',
+  $$delete from auth.users where is_anonymous and created_at < now() - interval '30 days'$$);
+```

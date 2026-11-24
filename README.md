@@ -1,7 +1,7 @@
 # Pedido Fácil (nome provisório)
 
 Plataforma de cardápio digital e delivery para pizzarias, hamburguerias e lanchonetes.
-Cada loja tem o próprio site, painel do operador e, nas próximas fases, app do motoboy.
+Cada loja tem o próprio site, painel do operador e site do motoboy.
 
 Stack: Next.js 16 (App Router) + TypeScript, Tailwind CSS 4, Supabase (Postgres, Auth, Storage) e Vercel.
 
@@ -102,6 +102,35 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
   Pix/cartão/dinheiro na entrega), troco, vendas por dia, mais vendidos, cupons e planilha CSV.
   Os números vêm de `finance_report`, calculado no banco no horário de Brasília.
 
+## Motoboys
+
+- `/painel/motoboys`: cadastro (nome, celular, chave Pix), quanto ganha (valor fixo por
+  entrega ou a taxa do bairro, mais diária opcional) e acerto por dia: entregas, taxas, diária,
+  dinheiro recebido dos clientes, quem deve quanto a quem e "marcar pago".
+- No painel de pedidos, cada entrega tem um seletor de motoboy (`assign_courier`). A taxa fica
+  gravada no pedido na hora em que ele é passado ao motoboy.
+- Site do motoboy em `/entregador/<link>` (sem login, link secreto por motoboy, que a loja pode
+  trocar a qualquer momento): entregas com endereço, mapa, WhatsApp do cliente, o que cobrar
+  (dinheiro com troco, cartão, Pix ou já pago), botões "Saí para entrega" e "Entreguei",
+  ganhos do dia e dos últimos 7 dias. Tudo passa por `courier_portal` e `courier_update`.
+
+## Demonstração e página de vendas
+
+- `/` é a página de vendas: o que o sistema faz, telas reais, comparação com marketplace,
+  preço, perguntas frequentes e os botões "Testar agora, sem cadastro" e "Criar minha loja".
+  As imagens ficam em `public/vendas/`. O preço (`PLAN_PRICE`) e o WhatsApp de vendas ficam em
+  `src/lib/brand.ts` (o WhatsApp também pode vir de `NEXT_PUBLIC_SALES_WHATSAPP`).
+- `/demo` cria, sem cadastro, uma loja de exemplo só para o visitante ("Pizzaria Bella Massa"):
+  cardápio, promoções, cupons, dois motoboys, 13 dias de pedidos e 3 pedidos em andamento.
+  Usa o login anônimo do Supabase e a função `create_demo_store`. A mesma sessão volta para a
+  mesma loja.
+- No painel da demonstração aparece uma barra com "Simular pedido", "Ver como cliente",
+  "Ver como motoboy" e "Criar minha loja", e um roteiro de 6 passos na tela inicial.
+- O Pix da demonstração é falso (QR Code de mentira e botão "Simular pagamento"). A loja de
+  demonstração não conecta conta de recebimento e lê no máximo 3 fotos de cardápio.
+- Lojas de demonstração somem depois de 24 horas (`purge_demo_stores`, chamada a cada nova
+  demonstração).
+
 ## Fases
 
 1. **Fundação**: login, cadastro da loja, horários, bairros e taxas, site base.
@@ -111,5 +140,7 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
    cupons de desconto no checkout.
 4. **Pix online e financeiro**: Pix na hora pelo Mercado Pago ou Asaas; pedido só chega
    depois de pago; tela Financeiro com totais por forma de pagamento e planilha.
-5. Motoboys.
-6. Modo demonstração e página de vendas.
+5. **Motoboys**: cadastro, escolha do motoboy por pedido, site do motoboy com entregas e
+   ganhos do dia, acerto diário com marcação de pago.
+6. **Demonstração e página de vendas**: loja de exemplo sem cadastro com pedidos, Pix
+   simulado e motoboys; página de vendas com telas reais.

@@ -24,7 +24,7 @@ const ITEMS: Item[] = [
   { href: "/painel/promocoes", label: "Promoções", icon: BadgePercent },
   { href: "/painel/cupons", label: "Cupons", icon: Ticket },
   { href: "/painel/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/painel/motoboys", label: "Motoboys", icon: Bike, soon: true },
+  { href: "/painel/motoboys", label: "Motoboys", icon: Bike },
   { href: "/painel/loja", label: "Minha loja", icon: Store },
 ];
 
