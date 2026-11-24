@@ -1,4 +1,4 @@
-# Pedido Fácil (nome provisório)
+# Fomely
 
 Plataforma de cardápio digital e delivery para pizzarias, hamburguerias e lanchonetes.
 Cada loja tem o próprio site, painel do operador e site do motoboy.

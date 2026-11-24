@@ -1,5 +1,5 @@
-/** Nome provisório da plataforma. Troque aqui quando a marca for definida. */
-export const APP_NAME = "Pedido Fácil";
+/** Nome da plataforma. */
+export const APP_NAME = "Fomely";
 export const APP_TAGLINE = "Cardápio digital e delivery para pizzarias e hamburguerias";
 
 /**

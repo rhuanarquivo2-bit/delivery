@@ -44,7 +44,7 @@ O Pix online usa a conta de cada loja no Mercado Pago ou no Asaas (o dono conect
 1. `SUPABASE_SECRET_KEY`: em **Project Settings > API Keys**, copie uma **Secret key**
    (`sb_secret_...`). Ela guarda e lê as chaves de recebimento das lojas e confirma os
    pagamentos. Só no servidor: nunca use `NEXT_PUBLIC_` nem mostre para ninguém.
-2. `NEXT_PUBLIC_SITE_URL`: o endereço do site com https (ex.: `https://pedidofacil.com.br`).
+2. `NEXT_PUBLIC_SITE_URL`: o endereço do site com https (ex.: `https://SEU-DOMINIO.com.br`).
    É para onde o Mercado Pago e o Asaas mandam o aviso de pagamento.
 
 Sem a chave secreta, o checkout só oferece pagamento na entrega. Em desenvolvimento
