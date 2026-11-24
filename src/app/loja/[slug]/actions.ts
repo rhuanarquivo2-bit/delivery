@@ -6,6 +6,7 @@ import { createPixForOrder, PaymentError, syncOrderPayment } from "@/lib/payment
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { AppliedCoupon } from "@/lib/pricing";
+import type { OrderSummary } from "@/lib/my-orders";
 import type { OrderQuote } from "@/lib/types";
 import { formatBRL, parseBRLToCents } from "@/lib/utils";
 
@@ -281,5 +282,67 @@ export async function lookupCustomer(storeId: string, phone: string): Promise<Sa
     zoneId: row.delivery_zone_id,
     cep: row.zip,
     orders: Number(row.orders) || 0,
+  };
+}
+
+// ---- Meus pedidos -------------------------------------------------------------
+
+const tokenList = z.array(z.string().uuid()).max(50);
+
+/** Pedidos guardados neste aparelho (os links ficam no próprio celular do cliente). */
+export async function myOrders(storeId: string, tokens: string[]): Promise<OrderSummary[]> {
+  const parsed = tokenList.safeParse(tokens);
+  if (!z.string().uuid().safeParse(storeId).success || !parsed.success || !parsed.data.length) return [];
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("orders_by_tokens", { p_store_id: storeId, p_tokens: parsed.data });
+  return Array.isArray(data) ? (data as OrderSummary[]) : [];
+}
+
+export type PinResult = { ok: true } | { ok: false; message: string };
+
+const PIN_ERRORS: Record<string, string> = {
+  senha_invalida: "A senha precisa ter 4 números.",
+  senha_fraca: "Essa senha é fácil de adivinhar. Escolha outra.",
+  pedido_nao_encontrado: "Pedido não encontrado.",
+};
+
+/** Cria ou troca a senha do cliente (só com o link de um pedido dele). */
+export async function createPin(token: string, pin: string): Promise<PinResult> {
+  if (!z.string().uuid().safeParse(token).success) return { ok: false, message: PIN_ERRORS.pedido_nao_encontrado };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_customer_pin", { p_token: token, p_pin: pin });
+  if (error) {
+    const code = Object.keys(PIN_ERRORS).find((k) => error.message.includes(k));
+    return { ok: false, message: code ? PIN_ERRORS[code] : "Não deu para salvar a senha agora. Tente de novo." };
+  }
+  return { ok: true };
+}
+
+export type LoginResult = { ok: true; orders: OrderSummary[] } | { ok: false; message: string };
+
+/** Outro aparelho: celular + senha. */
+export async function loginMyOrders(storeId: string, phone: string, pin: string): Promise<LoginResult> {
+  const digits = phone.replace(/\D/g, "");
+  if (!z.string().uuid().safeParse(storeId).success) return { ok: false, message: "Loja não encontrada." };
+  if (digits.length < 10 || digits.length > 11) return { ok: false, message: "Digite o celular com DDD." };
+  if (!/^\d{4}$/.test(pin)) return { ok: false, message: "A senha tem 4 números." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("customer_orders_login", { p_store_id: storeId, p_phone: digits, p_pin: pin });
+  const r = data as { orders?: OrderSummary[]; error?: string; left?: number; minutes?: number } | null;
+  if (error || !r) return { ok: false, message: "Não deu para entrar agora. Tente de novo." };
+  if (r.orders) return { ok: true, orders: r.orders };
+  if (r.error === "sem_senha") {
+    return {
+      ok: false,
+      message:
+        "Esse celular ainda não tem senha. No aparelho onde você fez o pedido, abra o pedido e toque em “Criar senha”.",
+    };
+  }
+  if (r.error === "bloqueado") {
+    return { ok: false, message: `Muitas tentativas erradas. Tente de novo em ${r.minutes ?? 15} minutos.` };
+  }
+  return {
+    ok: false,
+    message: `Senha incorreta. ${r.left === 1 ? "Mais 1 erro e o acesso fica bloqueado por um tempo." : `Você ainda tem ${r.left} tentativas.`}`,
   };
 }

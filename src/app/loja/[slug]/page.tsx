@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Bike, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-react";
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
+import { ActiveOrderBanner, MyOrdersLink } from "@/components/loja/my-orders-shortcut";
 import { StoreMenu } from "@/components/loja/store-menu";
 import { getBestSellers, getMenu } from "@/lib/menu";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -67,7 +68,12 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{store.name}</h1>
+              <div className="flex items-start justify-between gap-2">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{store.name}</h1>
+                <span className="hidden sm:block">
+                  <MyOrdersLink slug={store.slug} />
+                </span>
+              </div>
               <span
                 className={cn(
                   "mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -78,6 +84,10 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
                 {open ? "Aberto agora" : "Fechado no momento"}
               </span>
             </div>
+          </div>
+
+          <div className="mt-3 sm:hidden">
+            <MyOrdersLink slug={store.slug} />
           </div>
 
           {store.description ? <p className="mt-4 text-muted-foreground">{store.description}</p> : null}
@@ -101,6 +111,8 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
             ) : null}
           </div>
         </section>
+
+        <ActiveOrderBanner storeId={store.id} slug={store.slug} />
 
         {!open ? (
           nextSlot ? (

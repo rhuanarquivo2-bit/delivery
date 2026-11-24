@@ -26,13 +26,14 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
+import { rememberOrders } from "@/lib/my-orders";
 import { formatCep, lookupCep, matchZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
 import { scheduleOptions } from "@/lib/schedule";
 import { trackBeginCheckout } from "@/lib/tracking";
 import type { Category, StoreHour } from "@/lib/types";
-import { cn, formatBRL, parseBRLToCents } from "@/lib/utils";
+import { cn, formatBRL, formatPhone, parseBRLToCents } from "@/lib/utils";
 
 type StoreInfo = {
   id: string;
@@ -67,14 +68,6 @@ function loadCustomer(): SavedCustomer {
   } catch {
     return {};
   }
-}
-
-function formatPhone(value: string) {
-  const d = value.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
 export default function CheckoutFormInner({
@@ -341,6 +334,7 @@ export default function CheckoutFormInner({
         return;
       }
       cart.clear();
+      rememberOrders(store.slug, [result.token]);
       router.push(`/loja/${store.slug}/pedido/${result.token}`);
     });
   };

@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, CheckCircle2, Clock, MessageCircle, ShoppingBag, XCircle } from "lucide-react";
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
+import { CreatePin } from "@/components/loja/create-pin";
 import { OrderLiveUpdates } from "@/components/loja/order-live-updates";
+import { RememberOrder } from "@/components/loja/remember-order";
 import { PixPayment } from "@/components/loja/pix-payment";
 import { TrackPurchase } from "@/components/loja/store-tracking";
 import { formatScheduled } from "@/lib/schedule";
@@ -65,7 +67,11 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   const { data } = await supabase.rpc("get_public_order", { p_token: token });
   const order = data as PublicOrder | null;
   if (!order || order.store.slug !== slug) notFound();
-  const storeData = (await getPublicStore(slug))?.store;
+  const [storeData, { data: pinData }] = await Promise.all([
+    getPublicStore(slug).then((d) => d?.store),
+    supabase.rpc("customer_pin_status", { p_token: token }),
+  ]);
+  const pin = pinData as { has_pin: boolean; phone_end: string } | null;
   const isDemo = storeData?.is_demo ?? false;
   const hasTracking = Boolean(storeData?.facebook_pixel_id || storeData?.google_analytics_id);
 
@@ -81,6 +87,7 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   return (
     <div className="flex-1" style={{ "--brand": order.store.primary_color } as React.CSSProperties}>
       {isDemo ? <DemoStoreBanner /> : null}
+      <RememberOrder slug={order.store.slug} token={token} />
       {!finished && !awaitingPix ? (
         <OrderLiveUpdates token={token} stamp={[order.status, order.payment_status, order.scheduled_for ?? ""].join("|")} />
       ) : null}
@@ -244,6 +251,10 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
           >
             <ShoppingBag className="size-4" /> {finished ? "Fazer um novo pedido" : "Pedir mais alguma coisa"}
           </Link>
+        ) : null}
+
+        {pin && !awaitingPix && !pixExpired ? (
+          <CreatePin slug={order.store.slug} token={token} hasPin={pin.has_pin} phoneEnd={pin.phone_end} />
         ) : null}
 
         {whatsapp ? (
