@@ -7,7 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { isOpenNow } from "@/lib/hours";
 import { getMyStore, getStoreSettings } from "@/lib/stores";
 import { rootDomainLabel, storeUrl } from "@/lib/tenant";
-import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/server";
+import { cn, formatBRL } from "@/lib/utils";
+
+/** Meia-noite de hoje no horário de Brasília, em ISO. */
+function startOfTodayISO() {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  return new Date(`${day}T00:00:00-03:00`).toISOString();
+}
 
 export default async function PainelHome() {
   const mine = await getMyStore();
@@ -27,11 +34,24 @@ export default async function PainelHome() {
   }
 
   const { store } = mine;
-  const { hours, zones } = await getStoreSettings(store.id);
+  const supabase = await createClient();
+  const [{ hours, zones }, { count: productCount }, { data: todayOrders }] = await Promise.all([
+    getStoreSettings(store.id),
+    supabase.from("products").select("id", { count: "exact", head: true }).eq("store_id", store.id),
+    supabase
+      .from("orders")
+      .select("status, total_cents")
+      .eq("store_id", store.id)
+      .gte("created_at", startOfTodayISO()),
+  ]);
+  const valid = (todayOrders ?? []).filter((o) => o.status !== "cancelled");
+  const revenue = valid.reduce((n, o) => n + o.total_cents, 0);
+  const waiting = valid.filter((o) => o.status === "pending").length;
   const open = isOpenNow(hours, store.open_override);
 
   const steps = [
     { done: true, label: "Criar a loja", href: "/painel/loja" },
+    { done: (productCount ?? 0) > 0, label: "Montar o cardápio", href: "/painel/cardapio" },
     { done: Boolean(store.logo_url), label: "Enviar o logo", href: "/painel/loja#logo" },
     { done: hours.length > 0, label: "Definir o horário de funcionamento", href: "/painel/loja#horarios" },
     { done: zones.length > 0, label: "Cadastrar bairros e taxas de entrega", href: "/painel/loja#bairros" },
@@ -66,6 +86,27 @@ export default async function PainelHome() {
         </CardContent>
       </Card>
 
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Link href="/painel/pedidos" className="rounded-2xl border border-border bg-card p-5 hover:border-brand/40">
+          <p className="text-sm text-muted-foreground">Pedidos hoje</p>
+          <p className="mt-1 text-2xl font-bold">{valid.length}</p>
+        </Link>
+        <Link href="/painel/pedidos" className="rounded-2xl border border-border bg-card p-5 hover:border-brand/40">
+          <p className="text-sm text-muted-foreground">Vendido hoje</p>
+          <p className="mt-1 text-2xl font-bold">{formatBRL(revenue)}</p>
+        </Link>
+        <Link
+          href="/painel/pedidos"
+          className={cn(
+            "rounded-2xl border bg-card p-5",
+            waiting ? "border-brand ring-2 ring-brand/20" : "border-border hover:border-brand/40",
+          )}
+        >
+          <p className="text-sm text-muted-foreground">Aguardando aceite</p>
+          <p className={cn("mt-1 text-2xl font-bold", waiting && "text-brand")}>{waiting}</p>
+        </Link>
+      </div>
+
       {doneCount < steps.length ? (
         <Card>
           <CardHeader>
@@ -93,9 +134,7 @@ export default async function PainelHome() {
         </Card>
       ) : null}
 
-      <p className="text-sm text-muted-foreground">
-        Pedidos, cardápio, cupons, financeiro e motoboys chegam nas próximas fases.
-      </p>
+      <p className="text-sm text-muted-foreground">Cupons, financeiro e motoboys chegam nas próximas fases.</p>
     </div>
   );
 }
