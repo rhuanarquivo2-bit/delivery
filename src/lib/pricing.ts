@@ -1,4 +1,5 @@
-import type { Category, HalfPriceRule, MenuOption, PaymentMethod, Product } from "./types";
+import { promoPrice } from "./promotions";
+import type { Category, CouponKind, HalfPriceRule, MenuOption, PaymentMethod, Product } from "./types";
 
 /**
  * Mesma regra do place_order no banco. Aqui é só para mostrar o valor ao cliente;
@@ -24,7 +25,21 @@ export type CartSelection = {
   notes: string;
 };
 
-export function unitPrice(category: Category, selection: CartSelection): number | null {
+/** Preço do produto já com a melhor promoção do momento (quando `withPromos`). */
+function productPrice(product: Product, price: number | null, withPromos: boolean) {
+  if (price === null) return null;
+  return withPromos ? promoPrice(price, product.promos).price : price;
+}
+
+/**
+ * Preço de uma unidade com adicionais. Por padrão já aplica as promoções
+ * (cada sabor com a sua); `withPromos: false` dá o preço cheio para mostrar riscado.
+ */
+export function unitPrice(
+  category: Category,
+  selection: CartSelection,
+  { withPromos = true }: { withPromos?: boolean } = {},
+): number | null {
   const product = category.products.find((p) => p.id === selection.productId);
   if (!product) return null;
 
@@ -32,11 +47,11 @@ export function unitPrice(category: Category, selection: CartSelection): number 
   if (category.has_sizes) {
     if (!selection.sizeId) return null;
     const flavors = [product, ...selection.flavorIds.map((id) => category.products.find((p) => p.id === id))];
-    const prices = flavors.map((p) => (p ? priceForSize(p, selection.sizeId!) : null));
+    const prices = flavors.map((p) => (p ? productPrice(p, priceForSize(p, selection.sizeId!), withPromos) : null));
     if (prices.some((p) => p === null)) return null;
     base = flavorsPrice(prices as number[], category.half_price_rule);
   } else {
-    base = product.price_cents;
+    base = productPrice(product, product.price_cents, withPromos);
   }
   if (base === null) return null;
 
@@ -49,10 +64,17 @@ export function unitPrice(category: Category, selection: CartSelection): number 
 }
 
 /** Menor preço de um produto (para mostrar "a partir de" no cardápio). */
-export function startingPrice(category: Category, product: Product) {
-  if (!category.has_sizes) return product.price_cents;
-  const prices = product.prices.map((p) => p.price_cents);
+export function startingPrice(category: Category, product: Product, { withPromos = true } = {}) {
+  if (!category.has_sizes) return productPrice(product, product.price_cents, withPromos);
+  const prices = product.prices.map((p) => productPrice(product, p.price_cents, withPromos)!);
   return prices.length ? Math.min(...prices) : null;
+}
+
+/** Nome da promoção que está baixando o preço do produto agora (para o selo no cardápio). */
+export function activePromoName(category: Category, product: Product) {
+  const full = startingPrice(category, product, { withPromos: false });
+  if (full === null) return null;
+  return promoPrice(full, product.promos).name;
 }
 
 /** Problemas na escolha de adicionais, por grupo. */
@@ -80,4 +102,29 @@ export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 export function changeDue(totalCents: number, changeForCents: number | null) {
   if (changeForCents === null || changeForCents <= totalCents) return null;
   return changeForCents - totalCents;
+}
+
+export type AppliedCoupon = {
+  code: string;
+  kind: CouponKind;
+  value: number;
+  min_order_cents: number;
+  max_discount_cents: number | null;
+  description: string | null;
+};
+
+/** Desconto do cupom (mesma conta do price_order). null = pedido abaixo do mínimo do cupom. */
+export function couponDiscount(coupon: AppliedCoupon, subtotal: number, fee: number) {
+  if (subtotal < coupon.min_order_cents) return null;
+  if (coupon.kind === "percent") {
+    return Math.min(Math.floor((subtotal * coupon.value) / 100), coupon.max_discount_cents ?? subtotal);
+  }
+  if (coupon.kind === "fixed") return Math.min(coupon.value, subtotal);
+  return fee;
+}
+
+export function couponLabel(coupon: Pick<AppliedCoupon, "kind" | "value">, formatMoney: (cents: number) => string) {
+  if (coupon.kind === "percent") return `${coupon.value}% de desconto`;
+  if (coupon.kind === "fixed") return `${formatMoney(coupon.value)} de desconto`;
+  return "Entrega grátis";
 }

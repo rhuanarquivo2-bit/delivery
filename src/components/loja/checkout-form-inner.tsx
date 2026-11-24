@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Banknote, ChevronLeft, CreditCard, Minus, Plus, QrCode, Store as StoreIcon, Bike } from "lucide-react";
-import { placeOrder } from "@/app/loja/[slug]/actions";
+import { Banknote, ChevronLeft, CreditCard, Minus, Plus, QrCode, Store as StoreIcon, Bike, Ticket, X } from "lucide-react";
+import { checkCoupon, placeOrder } from "@/app/loja/[slug]/actions";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
-import { changeDue, unitPrice } from "@/lib/pricing";
+import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
 import type { Category } from "@/lib/types";
 import { cn, formatBRL, parseBRLToCents } from "@/lib/utils";
 
@@ -74,18 +74,34 @@ export default function CheckoutFormInner({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [checkingCoupon, startCouponCheck] = useTransition();
 
   // Recalcula os preços com o cardápio atual (pode ter mudado desde que o item foi colocado).
   const lines = cart.lines.map((line) => {
     const category = menu.find((c) => c.id === line.categoryId);
     const price = category ? unitPrice(category, line.selection) : null;
-    return { ...line, available: price !== null, unitPriceCents: price ?? line.unitPriceCents };
+    const full = category ? unitPrice(category, line.selection, { withPromos: false }) : null;
+    return {
+      ...line,
+      available: price !== null,
+      unitPriceCents: price ?? line.unitPriceCents,
+      fullUnitPriceCents: full !== null && price !== null && full > price ? full : null,
+    };
   });
   const unavailable = lines.filter((l) => !l.available);
   const subtotal = lines.filter((l) => l.available).reduce((n, l) => n + l.unitPriceCents * l.selection.quantity, 0);
   const zone = zones.find((z) => z.id === zoneId);
   const fee = fulfillment === "delivery" ? (zone?.fee ?? 0) : 0;
-  const total = subtotal + fee;
+  const promoSavings = lines
+    .filter((l) => l.available && l.fullUnitPriceCents !== null)
+    .reduce((n, l) => n + (l.fullUnitPriceCents! - l.unitPriceCents) * l.selection.quantity, 0);
+  // cupom de entrega grátis não vale para retirada
+  const couponUsable = coupon && !(coupon.kind === "free_delivery" && fulfillment === "pickup") ? coupon : null;
+  const discount = couponUsable ? couponDiscount(couponUsable, subtotal, fee) : null;
+  const total = Math.max(subtotal + fee - (discount ?? 0), 0);
   const belowMinimum = subtotal < store.min_order_cents;
   const changeCents = needsChange ? parseBRLToCents(changeFor) : null;
   const change = changeDue(total, changeCents);
@@ -101,6 +117,31 @@ export default function CheckoutFormInner({
       </main>
     );
   }
+
+  const applyCoupon = () => {
+    setCouponError(null);
+    const available = lines.filter((l) => l.available);
+    startCouponCheck(async () => {
+      const result = await checkCoupon({
+        store_id: store.id,
+        coupon_code: couponInput,
+        fulfillment,
+        delivery_zone_id: zoneId,
+        customer_phone: phone,
+        items: available.map((l) => ({
+          product_id: l.selection.productId,
+          size_id: l.selection.sizeId,
+          flavor_ids: l.selection.flavorIds,
+          option_ids: l.selection.optionIds,
+          quantity: l.selection.quantity,
+          notes: l.selection.notes,
+        })),
+      });
+      if (!result.ok) return setCouponError(result.message);
+      setCoupon(result.coupon);
+      setCouponInput("");
+    });
+  };
 
   const submit = () => {
     setError(null);
@@ -130,6 +171,8 @@ export default function CheckoutFormInner({
         payment_method: payment,
         change_for: needsChange ? changeFor : "",
         notes,
+        // cupom abaixo do valor mínimo dele não vai (o resumo já avisa)
+        coupon_code: couponUsable && discount !== null ? couponUsable.code : "",
         items: lines.map((l) => ({
           product_id: l.selection.productId,
           size_id: l.selection.sizeId,
@@ -182,7 +225,14 @@ export default function CheckoutFormInner({
                     </p>
                   ))}
                   {line.available ? (
-                    <p className="mt-1 text-sm font-semibold">{formatBRL(line.unitPriceCents * line.selection.quantity)}</p>
+                    <p className="mt-1 text-sm font-semibold">
+                      {line.fullUnitPriceCents !== null ? (
+                        <span className="mr-1.5 font-normal text-muted-foreground line-through">
+                          {formatBRL(line.fullUnitPriceCents * line.selection.quantity)}
+                        </span>
+                      ) : null}
+                      {formatBRL(line.unitPriceCents * line.selection.quantity)}
+                    </p>
                   ) : (
                     <p className="mt-1 text-xs font-semibold text-red-600">Indisponível no momento</p>
                   )}
@@ -365,14 +415,68 @@ export default function CheckoutFormInner({
           />
         </Block>
 
+        <Block title="Cupom de desconto">
+          {coupon ? (
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm">
+              <Ticket className="size-5 shrink-0 text-emerald-700" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-emerald-800">
+                  {coupon.code} · {couponLabel(coupon, formatBRL)}
+                </p>
+                {coupon.description ? <p className="text-emerald-800/80">{coupon.description}</p> : null}
+                {coupon !== couponUsable ? (
+                  <p className="text-amber-700">Vale só para entrega.</p>
+                ) : discount === null ? (
+                  <p className="text-amber-700">Vale para pedidos a partir de {formatBRL(coupon.min_order_cents)}.</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="cursor-pointer rounded-lg p-1.5 text-emerald-800 hover:bg-emerald-100"
+                aria-label="Remover cupom"
+                onClick={() => setCoupon(null)}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                aria-label="Código do cupom"
+                placeholder="Digite o código"
+                className="uppercase placeholder:normal-case"
+                maxLength={20}
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase().replace(/\s/g, ""))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (couponInput) applyCoupon();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" disabled={!couponInput || checkingCoupon} onClick={applyCoupon}>
+                {checkingCoupon ? "Conferindo..." : "Aplicar"}
+              </Button>
+            </div>
+          )}
+          {couponError ? <p className="mt-2 text-sm text-red-600">{couponError}</p> : null}
+        </Block>
+
         <Block title="Resumo">
           <dl className="grid gap-1.5 text-sm">
             <Row label="Subtotal" value={formatBRL(subtotal)} />
             {fulfillment === "delivery" ? (
               <Row label="Taxa de entrega" value={zone ? (fee ? formatBRL(fee) : "Grátis") : "Escolha o bairro"} />
             ) : null}
+            {discount ? <Row label={`Cupom ${couponUsable!.code}`} value={`- ${formatBRL(discount)}`} tone="success" /> : null}
             <Row label="Total" value={formatBRL(total)} strong />
           </dl>
+          {promoSavings > 0 || discount ? (
+            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+              Você está economizando {formatBRL(promoSavings + (discount ?? 0))} neste pedido.
+            </p>
+          ) : null}
           {belowMinimum ? (
             <p className="mt-3 text-sm text-red-600">
               Pedido mínimo de {formatBRL(store.min_order_cents)}. Faltam {formatBRL(store.min_order_cents - subtotal)}.
@@ -444,10 +548,16 @@ function Option({
   );
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: "success" }) {
   return (
-    <div className={cn("flex justify-between", strong && "border-t border-border pt-2 text-base font-bold")}>
-      <dt className={cn(!strong && "text-muted-foreground")}>{label}</dt>
+    <div
+      className={cn(
+        "flex justify-between",
+        strong && "border-t border-border pt-2 text-base font-bold",
+        tone === "success" && "text-emerald-700",
+      )}
+    >
+      <dt className={cn(!strong && !tone && "text-muted-foreground")}>{label}</dt>
       <dd>{value}</dd>
     </div>
   );

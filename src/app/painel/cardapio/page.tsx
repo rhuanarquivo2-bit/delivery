@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ImageIcon, Pencil, Plus } from "lucide-react";
+import { Camera, ImageIcon, Pencil, Plus } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
 import { ActiveSwitch, MoveButtons, QuickPrice } from "@/components/painel/cardapio/list-controls";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,7 +11,8 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Cardápio" };
 
-export default async function CardapioPage() {
+export default async function CardapioPage({ searchParams }: PageProps<"/painel/cardapio">) {
+  const { importado } = await searchParams;
   const { store } = await requireMyStore();
   const categories = await getMenu(store.id);
 
@@ -23,20 +25,37 @@ export default async function CardapioPage() {
             Altere preços direto na lista e pause o que acabou com um toque.
           </p>
         </div>
-        <Link href="/painel/cardapio/categoria/nova" className={buttonVariants({ variant: "outline" })}>
-          <Plus /> Nova categoria
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/painel/cardapio/importar" className={buttonVariants({ variant: "outline" })}>
+            <Camera /> Importar por foto
+          </Link>
+          <Link href="/painel/cardapio/categoria/nova" className={buttonVariants({ variant: "outline" })}>
+            <Plus /> Nova categoria
+          </Link>
+        </div>
       </div>
+
+      {importado ? (
+        <Alert tone="success">
+          Cardápio importado. Confira os itens abaixo, adicione fotos dos produtos e ajuste o que precisar.
+        </Alert>
+      ) : null}
 
       {categories.length === 0 ? (
         <Card className="px-6 py-14 text-center">
           <h2 className="text-lg font-semibold">Seu cardápio está vazio</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Comece criando as categorias, por exemplo Pizzas, Lanches e Bebidas. Depois adicione os produtos em cada uma.
+            Tire uma foto do seu cardápio impresso e a IA monta tudo para você revisar. Se preferir, crie as categorias
+            (Pizzas, Lanches, Bebidas...) e os produtos à mão.
           </p>
-          <Link href="/painel/cardapio/categoria/nova" className={cn(buttonVariants(), "mt-6")}>
-            <Plus /> Criar primeira categoria
-          </Link>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href="/painel/cardapio/importar" className={buttonVariants()}>
+              <Camera /> Importar por foto
+            </Link>
+            <Link href="/painel/cardapio/categoria/nova" className={buttonVariants({ variant: "outline" })}>
+              <Plus /> Criar à mão
+            </Link>
+          </div>
         </Card>
       ) : null}
 

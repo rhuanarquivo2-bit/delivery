@@ -83,6 +83,8 @@ export type Product = {
   active: boolean;
   sort_order: number;
   prices: ProductPrice[];
+  /** Promoções valendo agora (só no site do cliente). */
+  promos?: LivePromo[];
 };
 
 export type Category = {
@@ -116,6 +118,8 @@ export type OrderItem = {
   options: OrderItemOption[];
   quantity: number;
   unit_price_cents?: number;
+  original_unit_price_cents?: number | null;
+  promotion_name?: string | null;
   total_cents: number;
   notes: string | null;
   sort_order?: number;
@@ -138,6 +142,7 @@ export type Order = {
   subtotal_cents: number;
   delivery_fee_cents: number;
   discount_cents: number;
+  coupon_code: string | null;
   total_cents: number;
   payment_method: PaymentMethod;
   change_for_cents: number | null;
@@ -150,4 +155,62 @@ export type Order = {
   delivered_at: string | null;
   cancelled_at: string | null;
   order_items?: OrderItem[];
+};
+
+// ---------------------------------------------------------------------------
+// Promoções e cupons
+// ---------------------------------------------------------------------------
+export type DiscountKind = "percent" | "fixed";
+
+export type Promotion = {
+  id: string;
+  store_id: string;
+  name: string;
+  kind: DiscountKind;
+  value: number;
+  product_id: string | null;
+  category_id: string | null;
+  weekdays: number[] | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  active: boolean;
+  created_at: string;
+};
+
+export type LivePromo = { name: string; kind: DiscountKind; value: number };
+
+export type CouponKind = "percent" | "fixed" | "free_delivery";
+
+export type Coupon = {
+  id: string;
+  store_id: string;
+  code: string;
+  description: string | null;
+  kind: CouponKind;
+  value: number;
+  min_order_cents: number;
+  max_discount_cents: number | null;
+  usage_limit: number | null;
+  per_customer_limit: number | null;
+  first_order_only: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  active: boolean;
+  created_at: string;
+};
+
+export type OrderQuote = {
+  subtotal_cents: number;
+  original_subtotal_cents: number;
+  delivery_fee_cents: number;
+  discount_cents: number;
+  total_cents: number;
+  coupon_code: string | null;
+  coupon_kind: CouponKind | null;
+  coupon_value: number | null;
+  coupon_min_order_cents: number | null;
+  coupon_max_discount_cents: number | null;
+  coupon_description: string | null;
 };

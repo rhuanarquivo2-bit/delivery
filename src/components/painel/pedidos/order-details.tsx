@@ -21,6 +21,7 @@ export function OrderItemsList({ order, compact = false }: { order: Order; compa
               </p>
             ))}
             {item.notes ? <p className="text-[0.92em] font-semibold">Obs.: {item.notes}</p> : null}
+            {item.promotion_name ? <p className="text-[0.92em]">Promoção: {item.promotion_name}</p> : null}
           </div>
           <span className="shrink-0">{formatBRL(item.total_cents)}</span>
         </li>
@@ -45,7 +46,7 @@ export function OrderTotals({ order }: { order: Order }) {
       ) : null}
       {order.discount_cents ? (
         <div className="flex justify-between">
-          <dt>Desconto</dt>
+          <dt>{order.coupon_code ? `Cupom ${order.coupon_code}` : "Desconto"}</dt>
           <dd>- {formatBRL(order.discount_cents)}</dd>
         </div>
       ) : null}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isMenuReaderConfigured, MenuReaderError, readMenu, type MenuDraft, type MenuFile } from "@/lib/menu-reader";
 import { requireMyStore } from "@/lib/stores";
 import { createClient } from "@/lib/supabase/server";
 import { parseBRLToCents } from "@/lib/utils";
@@ -270,4 +271,111 @@ export async function move(kind: "product" | "category", itemId: string, directi
     ),
   );
   refresh(store.slug);
+}
+
+// ---------------------------------------------------------------------------
+// Importar cardápio por foto
+// ---------------------------------------------------------------------------
+const MAX_FILES = 4;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"] as const;
+
+export type ReadMenuResult = { ok: true; draft: MenuDraft } | { ok: false; message: string };
+
+export async function readMenuPhotos(formData: FormData): Promise<ReadMenuResult> {
+  await requireMyStore();
+  if (!isMenuReaderConfigured()) {
+    return { ok: false, message: "A leitura por foto ainda não foi ativada. Falta configurar a chave da IA (ANTHROPIC_API_KEY)." };
+  }
+  const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { ok: false, message: "Escolha pelo menos uma foto do cardápio." };
+  if (files.length > MAX_FILES) return { ok: false, message: `Envie no máximo ${MAX_FILES} fotos por vez.` };
+
+  const payload: MenuFile[] = [];
+  for (const file of files) {
+    const type = FILE_TYPES.find((t) => t === file.type);
+    if (!type) return { ok: false, message: "Use fotos JPG, PNG ou WEBP, ou um PDF." };
+    if (file.size > MAX_FILE_BYTES) return { ok: false, message: "Cada arquivo pode ter no máximo 5 MB." };
+    payload.push({ mediaType: type, data: Buffer.from(await file.arrayBuffer()).toString("base64") });
+  }
+
+  try {
+    const draft = await readMenu(payload);
+    if (draft.categories.length === 0) {
+      return { ok: false, message: draft.warnings[0] ?? "Não encontramos itens de cardápio nessas fotos." };
+    }
+    return { ok: true, draft };
+  } catch (error) {
+    if (error instanceof MenuReaderError) return { ok: false, message: error.message };
+    console.error(error);
+    return { ok: false, message: "Não foi possível ler o cardápio agora. Tente de novo." };
+  }
+}
+
+const importSchema = z.object({
+  publish: z.boolean(),
+  categories: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, "Toda categoria precisa de nome.").max(60),
+        description: z.string().trim().max(200),
+        sizes: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1, "Todo tamanho precisa de nome.").max(30),
+              max_flavors: z.number().int().min(1).max(4),
+            }),
+          )
+          .max(10),
+        groups: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1, "Todo grupo de adicionais precisa de nome.").max(60),
+              options: z
+                .array(
+                  z.object({
+                    name: z.string().trim().min(1, "Todo adicional precisa de nome.").max(60),
+                    price_cents: z.number().int().min(0),
+                  }),
+                )
+                .max(50),
+            }),
+          )
+          .max(20),
+        products: z
+          .array(
+            z.object({
+              name: z.string().trim().min(1, "Todo produto precisa de nome.").max(80),
+              description: z.string().trim().max(300),
+              price_cents: z.number().int().min(0).nullable(),
+              prices: z.array(z.number().int().min(0).nullable()).max(10),
+            }),
+          )
+          .max(200),
+      }),
+    )
+    .min(1, "Marque pelo menos uma categoria para importar.")
+    .max(40),
+});
+
+export type ImportMenuInput = z.input<typeof importSchema>;
+
+export async function importMenu(input: ImportMenuInput): Promise<{ ok: false; message: string } | never> {
+  const { store } = await requireMyStore();
+  const parsed = importSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+
+  for (const c of parsed.data.categories) {
+    for (const p of c.products) {
+      const hasPrice = c.sizes.length ? p.prices.some((x) => x !== null) : p.price_cents !== null;
+      if (!hasPrice) return { ok: false, message: `Falta o preço de “${p.name}” em ${c.name}.` };
+    }
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("import_menu", { p_store_id: store.id, p_menu: parsed.data });
+  if (error) return { ok: false, message: "Não foi possível importar o cardápio. Tente de novo." };
+
+  refresh(store.slug);
+  redirect("/painel/cardapio?importado=1");
 }
