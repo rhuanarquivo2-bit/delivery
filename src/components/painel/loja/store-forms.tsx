@@ -6,6 +6,7 @@ import { ImageUp, Plus, Trash2 } from "lucide-react";
 import {
   saveHours,
   saveZones,
+  updateSiteSettings,
   updateStoreInfo,
   uploadLogo,
   type FormState,
@@ -124,6 +125,129 @@ export function StoreInfoForm({ store, rootDomainLabel }: { store: Store; rootDo
           <div>
             <Button type="submit" disabled={pending}>
               {pending ? "Salvando..." : "Salvar dados"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+function Switch({
+  name,
+  defaultChecked,
+  title,
+  description,
+  children,
+}: {
+  name: string;
+  defaultChecked: boolean;
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-3 rounded-xl border border-border p-4">
+      <label className="flex cursor-pointer items-start gap-3">
+        <input type="checkbox" name={name} defaultChecked={defaultChecked} className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]" />
+        <span>
+          <span className="block text-sm font-semibold">{title}</span>
+          <span className="block text-sm text-muted-foreground">{description}</span>
+        </span>
+      </label>
+      {children}
+    </div>
+  );
+}
+
+export function SiteSettingsForm({ store }: { store: Store }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(updateSiteSettings, {});
+  const e = state.errors ?? {};
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Site e pedidos</CardTitle>
+        <CardDescription>Agendamento, promoções, impressão e ferramentas de anúncio.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={keepValuesOnSubmit(action)} className="grid gap-4">
+          <Feedback state={state} />
+          <Switch
+            name="accepts_scheduled"
+            defaultChecked={store.accepts_scheduled}
+            title="Aceitar pedidos agendados"
+            description="O cliente escolhe dia e horário para receber, dentro do seu horário de funcionamento. Com a loja fechada, o site continua recebendo agendamentos."
+          >
+            <Field label="Até quantos dias à frente" htmlFor="schedule_days_ahead" error={e.schedule_days_ahead}>
+              <select
+                id="schedule_days_ahead"
+                name="schedule_days_ahead"
+                defaultValue={store.schedule_days_ahead}
+                className="h-11 max-w-56 rounded-xl border border-border bg-background px-3 text-sm"
+              >
+                <option value={0}>Só para hoje</option>
+                {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? "Hoje e amanhã" : `Até ${n} dias`}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </Switch>
+          <Switch
+            name="show_promo_popup"
+            defaultChecked={store.show_promo_popup}
+            title="Mostrar janela de promoções no site"
+            description="Quando o cliente abre o site, aparece uma janela com os produtos em promoção naquele momento (uma vez por visita)."
+          />
+          <Switch
+            name="print_kitchen_copy"
+            defaultChecked={store.print_kitchen_copy}
+            title="Imprimir também a via da cozinha"
+            description="O comprovante sai em duas vias: a do caixa, com preços, e a da cozinha, sem preços e com letra maior."
+          />
+          <div className="grid gap-4 rounded-xl border border-border p-4">
+            <div>
+              <p className="text-sm font-semibold">Anúncios e métricas</p>
+              <p className="text-sm text-muted-foreground">
+                Cole só o código. O site registra visitas, produtos colocados no carrinho, início do checkout e pedidos feitos.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="ID do Facebook Pixel"
+                htmlFor="facebook_pixel_id"
+                error={e.facebook_pixel_id}
+                hint="Gerenciador de Eventos da Meta > Fontes de dados."
+              >
+                <Input
+                  id="facebook_pixel_id"
+                  name="facebook_pixel_id"
+                  inputMode="numeric"
+                  placeholder="123456789012345"
+                  defaultValue={store.facebook_pixel_id ?? ""}
+                />
+              </Field>
+              <Field
+                label="ID do Google Analytics"
+                htmlFor="google_analytics_id"
+                error={e.google_analytics_id}
+                hint="Analytics > Administrador > Fluxos de dados."
+              >
+                <Input
+                  id="google_analytics_id"
+                  name="google_analytics_id"
+                  placeholder="G-AB12CD34EF"
+                  className="uppercase placeholder:normal-case"
+                  defaultValue={store.google_analytics_id ?? ""}
+                />
+              </Field>
+            </div>
+          </div>
+          <div>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Salvando..." : "Salvar configurações"}
             </Button>
           </div>
         </form>

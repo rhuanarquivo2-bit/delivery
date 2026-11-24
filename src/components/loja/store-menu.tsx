@@ -2,25 +2,68 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, ShoppingBag, Tag } from "lucide-react";
+import { Dialog } from "@/components/ui/dialog";
 import { useCart } from "@/lib/cart";
 import { activePromoName, startingPrice } from "@/lib/pricing";
+import { trackAddToCart } from "@/lib/tracking";
 import type { Category, Product } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 import { ProductDialog } from "./product-dialog";
 
+type PromoItem = { category: Category; product: Product; promo: string; from: number; full: number };
+
+/** Produtos com promoção valendo agora (para a janela de promoções). */
+function promoItems(categories: Category[]): PromoItem[] {
+  const items: PromoItem[] = [];
+  for (const category of categories) {
+    for (const product of category.products) {
+      const promo = activePromoName(category, product);
+      const from = startingPrice(category, product);
+      const full = startingPrice(category, product, { withPromos: false });
+      if (promo && from !== null && full !== null && full > from) items.push({ category, product, promo, from, full });
+    }
+  }
+  return items.sort((a, b) => b.full - b.from - (a.full - a.from)).slice(0, 6);
+}
+
 export function StoreMenu({
   slug,
+  storeName,
   categories,
   canOrder,
+  promoPopup = false,
 }: {
   slug: string;
+  storeName?: string;
   categories: Category[];
   canOrder: boolean;
+  promoPopup?: boolean;
 }) {
   const cart = useCart(slug);
   const [selected, setSelected] = useState<{ category: Category; product: Product } | null>(null);
+  const [promos] = useState(() => (promoPopup ? promoItems(categories) : []));
+  const [showPromos, setShowPromos] = useState(false);
+  // Uma vez por visita (sessão do navegador), e só se houver promoção valendo agora.
+  useEffect(() => {
+    if (!promos.length) return;
+    const key = `promos-vistas:${slug}`;
+    try {
+      if (window.sessionStorage.getItem(key)) return;
+    } catch {
+      // sem sessionStorage (aba anônima restrita): mostra mesmo assim
+    }
+    const t = window.setTimeout(() => {
+      setShowPromos(true);
+      try {
+        window.sessionStorage.setItem(key, "1");
+      } catch {
+        // ignora
+      }
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [promos, slug]);
   const [query, setQuery] = useState("");
   const [added, setAdded] = useState(false);
 
@@ -139,10 +182,64 @@ export function StoreMenu({
           onClose={() => setSelected(null)}
           onAdd={(line) => {
             cart.add(line);
+            trackAddToCart({
+              id: line.selection.productId,
+              name: line.title,
+              price_cents: line.unitPriceCents,
+              quantity: line.selection.quantity,
+            });
             setAdded(true);
             setTimeout(() => setAdded(false), 1200);
           }}
         />
+      ) : null}
+
+      {showPromos ? (
+        <Dialog open onClose={() => setShowPromos(false)} label="Promoções de hoje">
+          <div className="grid gap-4 overflow-y-auto p-5">
+            <div className="pr-10">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                <Tag className="size-3.5" /> Promoções de hoje
+              </p>
+              <h2 className="mt-2 text-xl font-bold tracking-tight">
+                {storeName ? `Aproveite na ${storeName}` : "Aproveite enquanto dura"}
+              </h2>
+            </div>
+            <ul className="grid gap-2">
+              {promos.map(({ category, product, promo, from, full }) => (
+                <li key={product.id}>
+                  <button
+                    onClick={() => {
+                      setShowPromos(false);
+                      setSelected({ category, product });
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-border p-3 text-left hover:border-brand/40 hover:bg-muted/40"
+                  >
+                    {product.image_url ? (
+                      <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                        <Image src={product.image_url} alt="" fill sizes="56px" className="object-cover" />
+                      </div>
+                    ) : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{product.name}</span>
+                      <span className="block truncate text-xs text-emerald-700">{promo}</span>
+                    </span>
+                    <span className="shrink-0 text-right text-sm">
+                      <span className="block text-xs text-muted-foreground line-through">{formatBRL(full)}</span>
+                      <span className="block font-bold text-emerald-700">{formatBRL(from)}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setShowPromos(false)}
+              className="h-11 cursor-pointer rounded-xl bg-brand text-sm font-semibold text-brand-foreground"
+            >
+              Ver o cardápio completo
+            </button>
+          </div>
+        </Dialog>
       ) : null}
 
       {cart.count > 0 ? (

@@ -36,6 +36,12 @@ const ERRORS: Record<string, string> = {
   cupom_so_entrega: "Esse cupom de entrega grátis vale só para pedidos com entrega.",
   documento_obrigatorio: "Informe seu CPF para pagar com Pix.",
   documento_invalido: "CPF inválido. Confira os números.",
+  cep_invalido: "CEP inválido. Confira os 8 números ou deixe em branco.",
+  agendamento_indisponivel: "Esta loja não está aceitando pedidos agendados.",
+  agendamento_invalido: "Horário de agendamento inválido. Escolha outro.",
+  agendamento_cedo: "Esse horário ficou perto demais. Escolha um horário mais tarde.",
+  agendamento_longe: "Esse dia está longe demais para agendar. Escolha uma data mais próxima.",
+  agendamento_fora_horario: "A loja não funciona nesse horário. Escolha outro.",
 };
 
 function errorMessage(error: { message: string; details?: string | null }) {
@@ -57,7 +63,16 @@ const schema = z.object({
   address_number: z.string().max(20).default(""),
   address_complement: z.string().max(80).default(""),
   address_reference: z.string().max(120).default(""),
+  address_zip: z
+    .string()
+    .default("")
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => v === "" || v.length === 8, "CEP inválido. Confira os 8 números ou deixe em branco."),
   delivery_zone_id: z.string().default(""),
+  scheduled_for: z
+    .string()
+    .default("")
+    .refine((v) => v === "" || !Number.isNaN(Date.parse(v)), "Horário de agendamento inválido. Escolha outro."),
   payment_method: z.enum(["pix_online", "pix_delivery", "card_delivery", "cash"], {
     message: "Escolha a forma de pagamento.",
   }),
@@ -112,7 +127,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       address_number: o.address_number,
       address_complement: o.address_complement,
       address_reference: o.address_reference,
+      address_zip: o.fulfillment === "delivery" ? o.address_zip || null : null,
       delivery_zone_id: o.fulfillment === "delivery" ? o.delivery_zone_id || null : null,
+      scheduled_for: o.scheduled_for || null,
       payment_method: o.payment_method,
       customer_document: pixOnline ? o.customer_document || null : null,
       change_for_cents: changeFor,

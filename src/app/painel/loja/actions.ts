@@ -123,6 +123,45 @@ export async function updateStoreInfo(_prev: FormState, formData: FormData): Pro
 }
 
 // ---------------------------------------------------------------------------
+// Site e pedidos: agendamento, janela de promoções, impressão e marketing
+// ---------------------------------------------------------------------------
+const checkbox = z
+  .string()
+  .optional()
+  .transform((v) => v === "on");
+
+const siteSchema = z.object({
+  accepts_scheduled: checkbox,
+  schedule_days_ahead: z.coerce.number().int().min(0, "De 0 a 7 dias.").max(7, "De 0 a 7 dias."),
+  show_promo_popup: checkbox,
+  print_kitchen_copy: checkbox,
+  facebook_pixel_id: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || /^[0-9]{6,20}$/.test(v), "O ID do Pixel tem só números (ex.: 123456789012345).")
+    .transform((v) => (v === "" ? null : v)),
+  google_analytics_id: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v === "" || /^G-[A-Z0-9]{4,16}$/.test(v), "O ID do Analytics começa com G- (ex.: G-AB12CD34EF).")
+    .transform((v) => (v === "" ? null : v)),
+});
+
+export async function updateSiteSettings(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { store } = await requireMyStore();
+  const parsed = siteSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return fieldErrors(parsed.error);
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("stores").update(parsed.data).eq("id", store.id);
+  if (error) return { message: "Não foi possível salvar. Tente de novo." };
+  revalidatePath("/painel", "layout");
+  revalidatePath(`/loja/${store.slug}`, "layout");
+  return { ok: true, message: "Configurações do site salvas." };
+}
+
+// ---------------------------------------------------------------------------
 // Logo
 // ---------------------------------------------------------------------------
 const LOGO_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };

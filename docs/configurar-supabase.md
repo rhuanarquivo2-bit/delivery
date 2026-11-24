@@ -13,6 +13,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    4. `20261124030000_pix_financeiro.sql` (Pix online, contas de recebimento e relatório financeiro)
    5. `20261124040000_motoboys.sql` (motoboys, entregas, site do motoboy e acerto)
    6. `20261124050000_demonstracao.sql` (modo demonstração)
+   7. `20261124060000_melhorias.sql` (pedido agendado, CEP, clientes, desempenho, via da cozinha, Pixel e Analytics)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:

@@ -100,6 +100,7 @@ export function orderAddress(order: Order) {
     [order.address_street, order.address_number].filter(Boolean).join(", "),
     order.address_complement,
     order.address_district,
+    order.address_zip ? `CEP ${order.address_zip.slice(0, 5)}-${order.address_zip.slice(5)}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
