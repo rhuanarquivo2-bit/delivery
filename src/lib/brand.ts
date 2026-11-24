@@ -4,8 +4,11 @@ export const APP_TAGLINE = "Cardápio digital e delivery para pizzarias e hambur
 
 /**
  * WhatsApp de vendas no formato do wa.me (55 + DDD + número), aceitando o número com ou sem o 55.
- * Vazio: a página de vendas não mostra o botão.
+ * Padrão: o WhatsApp de vendas atual. Dá para trocar com NEXT_PUBLIC_SALES_WHATSAPP.
  */
-const salesDigits = (process.env.NEXT_PUBLIC_SALES_WHATSAPP ?? "").replace(/\D/g, "");
+const salesDigits = (process.env.NEXT_PUBLIC_SALES_WHATSAPP || "31982346027").replace(/\D/g, "");
 export const SALES_WHATSAPP =
   salesDigits.length >= 12 && salesDigits.startsWith("55") ? salesDigits : salesDigits ? `55${salesDigits}` : "";
+
+/** Preço do plano mostrado na página de vendas. */
+export const PLAN_PRICE = "R$ 99,90";

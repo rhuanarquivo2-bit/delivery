@@ -117,9 +117,9 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
 ## Demonstração e página de vendas
 
 - `/` é a página de vendas: o que o sistema faz, telas reais, comparação com marketplace,
-  perguntas frequentes e os botões "Testar agora, sem cadastro" e "Criar minha loja".
-  As imagens ficam em `public/vendas/`. Para mostrar o botão de WhatsApp de vendas, preencha
-  `NEXT_PUBLIC_SALES_WHATSAPP`.
+  preço, perguntas frequentes e os botões "Testar agora, sem cadastro" e "Criar minha loja".
+  As imagens ficam em `public/vendas/`. O preço (`PLAN_PRICE`) e o WhatsApp de vendas ficam em
+  `src/lib/brand.ts` (o WhatsApp também pode vir de `NEXT_PUBLIC_SALES_WHATSAPP`).
 - `/demo` cria, sem cadastro, uma loja de exemplo só para o visitante ("Pizzaria Bella Massa"):
   cardápio, promoções, cupons, dois motoboys, 13 dias de pedidos e 3 pedidos em andamento.
   Usa o login anônimo do Supabase e a função `create_demo_store`. A mesma sessão volta para a

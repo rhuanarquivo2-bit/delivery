@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { APP_NAME, APP_TAGLINE, SALES_WHATSAPP } from "@/lib/brand";
+import { APP_NAME, APP_TAGLINE, PLAN_PRICE, SALES_WHATSAPP } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -101,7 +101,22 @@ const COMPARISON = [
   ["Promoções e cupons", "Regras do aplicativo", "Do seu jeito"],
 ];
 
+const PLAN_ITEMS = [
+  "Site da loja com cardápio, promoções e cupons",
+  "Cardápio montado por foto com IA",
+  "Pix na hora direto na sua conta",
+  "Pagamento na entrega: cartão, Pix e dinheiro com troco",
+  "Painel de pedidos ao vivo e comprovante",
+  "Motoboys com site próprio e acerto do dia",
+  "Financeiro com totais por forma de pagamento",
+  "Pedidos ilimitados, sem comissão",
+];
+
 const FAQ = [
+  {
+    q: "Quanto custa?",
+    a: `${PLAN_PRICE} por mês, com tudo incluído e pedidos ilimitados. Não cobramos comissão por pedido. No Pix online, a única taxa é a da sua conta no Mercado Pago ou no Asaas.`,
+  },
   {
     q: "Preciso instalar alguma coisa?",
     a: "Não. Tudo funciona pelo navegador: o painel no computador ou tablet, o site do cliente e o site do motoboy no celular.",
@@ -146,6 +161,9 @@ export default function Home() {
             </a>
             <a href="#recursos" className="hover:text-foreground">
               Recursos
+            </a>
+            <a href="#preco" className="hover:text-foreground">
+              Preço
             </a>
             <a href="#perguntas" className="hover:text-foreground">
               Perguntas
@@ -339,6 +357,53 @@ export default function Home() {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      {/* Preço */}
+      <section id="preco" className="scroll-mt-16 border-t border-border">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-24 md:grid-cols-[1fr_1.1fr]">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Um preço só, tudo incluído</h2>
+            <p className="mt-3 text-muted-foreground">
+              Sem comissão por pedido e sem cobrar por recurso. Venda mais e pague o mesmo valor.
+            </p>
+            {whatsapp ? (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+              >
+                <MessageCircle className="size-4" /> Dúvidas? Fale com a gente no WhatsApp
+              </a>
+            ) : null}
+          </div>
+          <div className="rounded-3xl border-2 border-brand/70 bg-card p-8 shadow-xl shadow-brand/5">
+            <p className="text-sm font-semibold text-brand">Plano completo</p>
+            <p className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-5xl font-bold tracking-tight">{PLAN_PRICE}</span>
+              <span className="text-muted-foreground">/mês</span>
+            </p>
+            <ul className="mt-6 grid gap-2.5 text-sm">
+              {PLAN_ITEMS.map((item) => (
+                <li key={item} className="flex items-start gap-2.5">
+                  <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" /> {item}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 grid gap-2.5 sm:grid-cols-2">
+              <Link href="/entrar?modo=cadastro" className={buttonVariants({ size: "lg" })}>
+                Criar minha loja
+              </Link>
+              <Link href="/demo" className={buttonVariants({ size: "lg", variant: "outline" })}>
+                Testar antes
+              </Link>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Taxa do Pix online: a da sua conta no Mercado Pago ou no Asaas.
+            </p>
+          </div>
         </div>
       </section>
 
