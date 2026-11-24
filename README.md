@@ -32,6 +32,8 @@ src/
     auth/confirmar/       link de confirmação de e-mail
     painel/               painel do operador (protegido)
       pedidos/            pedidos ao vivo, aviso sonoro, mudança de status
+      clientes/           clientes, filtros e planilha
+      desempenho/         horários de pico, tempos e bairros
       cardapio/           categorias, tamanhos, adicionais e produtos
       loja/               dados, logo, horários e bairros/taxas
     imprimir/pedido/[id]  comprovante para impressora térmica 80 mm
@@ -131,6 +133,27 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
 - Lojas de demonstração somem depois de 24 horas (`purge_demo_stores`, chamada a cada nova
   demonstração).
 
+## Agendamento, clientes, desempenho e marketing
+
+- **Pedido agendado** (`Minha loja > Site e pedidos`): o cliente escolhe dia e horário (de 15 em 15
+  minutos, dentro do horário de funcionamento, depois do tempo de preparo e até N dias à frente).
+  Com a loja fechada, o site continua recebendo agendamentos. `place_order` confere tudo de novo
+  (`scheduled_for`); o painel e o comprovante mostram "Agendado: amanhã às 20:00".
+- **CEP no checkout**: busca no ViaCEP pelo navegador do cliente, preenche a rua e escolhe o bairro de
+  entrega da loja com o mesmo nome (`src/lib/cep.ts`). Opcional; o CEP vai para o comprovante.
+- **Janela de promoções**: ao abrir o site, mostra os produtos com promoção valendo agora (uma vez por
+  visita), se a loja ligar a opção.
+- **Via da cozinha**: `/imprimir/pedido/<id>?via=caixa|cozinha|ambas`. A via da cozinha não tem preços
+  e tem letra maior; a loja escolhe se o padrão é imprimir as duas. A via do caixa leva o logo.
+- **Clientes** (`/painel/clientes`): um por celular, com pedidos, total gasto, último pedido, filtros
+  (fiéis, novos, sumidos), WhatsApp com mensagem pronta e planilha. Vem de `customer_report`.
+- **Desempenho** (`/painel/desempenho`): horário de pico, pedidos por hora e por dia da semana,
+  tempos (aceitar, preparo, até a entrega), clientes novos, agendados, cancelamentos e bairros.
+  Vem de `performance_report`.
+- **Facebook Pixel e Google Analytics**: a loja cola o ID; o site registra PageView, AddToCart,
+  InitiateCheckout e Purchase (`src/components/loja/store-tracking.tsx`). O formato dos IDs é
+  conferido no banco, então nunca vira código.
+
 ## Fases
 
 1. **Fundação**: login, cadastro da loja, horários, bairros e taxas, site base.
@@ -144,3 +167,5 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
    ganhos do dia, acerto diário com marcação de pago.
 6. **Demonstração e página de vendas**: loja de exemplo sem cadastro com pedidos, Pix
    simulado e motoboys; página de vendas com telas reais.
+7. **Melhorias**: pedido agendado, CEP no checkout, janela de promoções, via da cozinha,
+   clientes, desempenho, Facebook Pixel e Google Analytics.

@@ -7,6 +7,7 @@ import { StoreMenu } from "@/components/loja/store-menu";
 import { getMenu } from "@/lib/menu";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { isOpenNow, shortTime, WEEKDAYS } from "@/lib/hours";
+import { scheduleOptions } from "@/lib/schedule";
 import { getPublicStore } from "@/lib/stores";
 import { cn, formatBRL } from "@/lib/utils";
 
@@ -30,6 +31,14 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
   const { store, hours, zones } = data;
   const menu = await getMenu(store.id, { publicOnly: true });
   const open = isOpenNow(hours, store.open_override);
+  const nextSlot = store.accepts_scheduled
+    ? (scheduleOptions({
+        hours,
+        override: store.open_override,
+        prepMinutes: store.prep_time_minutes,
+        daysAhead: store.schedule_days_ahead,
+      })[0] ?? null)
+    : null;
   const activeZones = zones.filter((z) => z.active);
   const minFee = activeZones.length ? Math.min(...activeZones.map((z) => z.fee_cents)) : null;
   const address = [
@@ -94,12 +103,29 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
         </section>
 
         {!open ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            Estamos fechados agora. Você pode ver o cardápio, mas os pedidos abrem no próximo horário de funcionamento.
-          </div>
+          nextSlot ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Estamos fechados agora, mas você já pode <strong>agendar seu pedido</strong>. Primeiro horário:{" "}
+              {nextSlot.label.toLowerCase()} às {nextSlot.slots[0].label}.
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              Estamos fechados agora. Você pode ver o cardápio, mas os pedidos abrem no próximo horário de funcionamento.
+            </div>
+          )
+        ) : store.accepts_scheduled ? (
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            Quer para mais tarde? Você pode agendar o pedido na hora de finalizar.
+          </p>
         ) : null}
 
-        <StoreMenu slug={store.slug} categories={menu} canOrder={open} />
+        <StoreMenu
+          slug={store.slug}
+          storeName={store.name}
+          categories={menu}
+          canOrder={open || nextSlot !== null}
+          promoPopup={store.show_promo_popup}
+        />
 
         <div className="mt-10 grid gap-6 sm:grid-cols-2">
           <section className="rounded-3xl border border-border bg-card p-6">

@@ -10,6 +10,8 @@ import {
   LayoutGrid,
   Store,
   Ticket,
+  TrendingUp,
+  Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +25,8 @@ const ITEMS: Item[] = [
   { href: "/painel/cardapio", label: "Cardápio", icon: LayoutGrid },
   { href: "/painel/promocoes", label: "Promoções", icon: BadgePercent },
   { href: "/painel/cupons", label: "Cupons", icon: Ticket },
+  { href: "/painel/clientes", label: "Clientes", icon: Users },
+  { href: "/painel/desempenho", label: "Desempenho", icon: TrendingUp },
   { href: "/painel/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/painel/motoboys", label: "Motoboys", icon: Bike },
   { href: "/painel/loja", label: "Minha loja", icon: Store },

@@ -2,17 +2,35 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Banknote, ChevronLeft, CreditCard, Minus, Plus, QrCode, Store as StoreIcon, Bike, Ticket, X, Zap } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  Banknote,
+  Bike,
+  CalendarClock,
+  ChevronLeft,
+  CreditCard,
+  Loader2,
+  Minus,
+  Plus,
+  QrCode,
+  Store as StoreIcon,
+  Ticket,
+  Timer,
+  X,
+  Zap,
+} from "lucide-react";
 import { checkCoupon, placeOrder } from "@/app/loja/[slug]/actions";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
+import { formatCep, lookupCep, matchZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
-import type { Category } from "@/lib/types";
+import { scheduleOptions } from "@/lib/schedule";
+import { trackBeginCheckout } from "@/lib/tracking";
+import type { Category, StoreHour } from "@/lib/types";
 import { cn, formatBRL, parseBRLToCents } from "@/lib/utils";
 
 type StoreInfo = {
@@ -22,6 +40,9 @@ type StoreInfo = {
   min_order_cents: number;
   prep_time_minutes: number;
   pix_provider: "mercadopago" | "asaas" | "demo" | null;
+  open_override: boolean | null;
+  accepts_scheduled: boolean;
+  schedule_days_ahead: number;
 };
 type Zone = { id: string; name: string; fee: number };
 type Payment = "pix_online" | "pix_delivery" | "card_delivery" | "cash";
@@ -36,6 +57,7 @@ type SavedCustomer = {
   complement?: string;
   reference?: string;
   zoneId?: string;
+  cep?: string;
 };
 
 function loadCustomer(): SavedCustomer {
@@ -57,11 +79,13 @@ function formatPhone(value: string) {
 export default function CheckoutFormInner({
   store,
   open,
+  hours,
   zones,
   menu,
 }: {
   store: StoreInfo;
   open: boolean;
+  hours: StoreHour[];
   zones: Zone[];
   menu: Category[];
 }) {
@@ -76,6 +100,37 @@ export default function CheckoutFormInner({
   const [number, setNumber] = useState(saved.number ?? "");
   const [complement, setComplement] = useState(saved.complement ?? "");
   const [reference, setReference] = useState(saved.reference ?? "");
+  const [cep, setCep] = useState(formatCep(saved.cep ?? ""));
+  const [cepStatus, setCepStatus] = useState<{ tone: "info" | "error"; text: string } | null>(null);
+  const [cepLoading, setCepLoading] = useState(false);
+  const cepAbort = useRef<AbortController | null>(null);
+  // Horários para agendar: recalcula a cada minuto (o primeiro horário anda com o relógio).
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setClock(Date.now()), 60000);
+    return () => window.clearInterval(t);
+  }, []);
+  const scheduleDays = useMemo(
+    () =>
+      store.accepts_scheduled
+        ? scheduleOptions({
+            hours,
+            override: store.open_override,
+            prepMinutes: store.prep_time_minutes,
+            daysAhead: store.schedule_days_ahead,
+            now: new Date(clock),
+          })
+        : [],
+    [store, hours, clock],
+  );
+  const canSchedule = scheduleDays.length > 0;
+  const [when, setWhen] = useState<"now" | "later">(open ? "now" : "later");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleSlot, setScheduleSlot] = useState("");
+  const scheduling = when === "later" && canSchedule;
+  const scheduleDay = scheduleDays.find((d) => d.date === scheduleDate) ?? scheduleDays[0];
+  const slot = scheduleDay?.slots.find((s) => s.value === scheduleSlot) ?? null;
+  const canSubmitNow = scheduling ? slot !== null : open;
   const [payment, setPayment] = useState<Payment | null>(null);
   const [needsChange, setNeedsChange] = useState(false);
   const [changeFor, setChangeFor] = useState("");
@@ -115,6 +170,50 @@ export default function CheckoutFormInner({
   const needsCpf = payment === "pix_online" && store.pix_provider === "asaas";
   const changeCents = needsChange ? parseBRLToCents(changeFor) : null;
   const change = changeDue(total, changeCents);
+
+  // Marketing da loja (Pixel/Analytics): uma vez ao abrir o checkout.
+  const tracked = useRef(false);
+  useEffect(() => {
+    if (tracked.current || cart.lines.length === 0) return;
+    tracked.current = true;
+    trackBeginCheckout(subtotal, cart.lines.length);
+  }, [cart.lines.length, subtotal]);
+
+  const fillFromCep = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    setCepStatus(null);
+    cepAbort.current?.abort();
+    if (digits.length !== 8) return;
+    const controller = new AbortController();
+    cepAbort.current = controller;
+    setCepLoading(true);
+    lookupCep(digits, controller.signal)
+      .then((found) => {
+        if (!found) return setCepStatus({ tone: "error", text: "CEP não encontrado. Preencha o endereço abaixo." });
+        if (found.street) setStreet(found.street);
+        const match = found.district ? matchZone(zones, found.district) : null;
+        if (match) {
+          setZoneId(match.id);
+          setCepStatus({ tone: "info", text: `${found.street ? `${found.street} · ` : ""}${match.name}` });
+        } else {
+          setCepStatus({
+            tone: "info",
+            text: found.district
+              ? `Bairro ${found.district}: escolha na lista o bairro de entrega mais próximo.`
+              : "Escolha o bairro de entrega na lista.",
+          });
+        }
+        if (found.street) window.setTimeout(() => document.getElementById("number")?.focus(), 0);
+      })
+      .catch((err: unknown) => {
+        if ((err as Error)?.name !== "AbortError") {
+          setCepStatus({ tone: "error", text: "Não deu para buscar o CEP agora. Preencha o endereço abaixo." });
+        }
+      })
+      .finally(() => {
+        if (cepAbort.current === controller) setCepLoading(false);
+      });
+  };
 
   if (cart.lines.length === 0) {
     return (
@@ -159,13 +258,15 @@ export default function CheckoutFormInner({
     if (!payment) return setError("Escolha a forma de pagamento.");
     if (needsCpf && !isValidDocument(cpf)) return setError("Informe um CPF válido para pagar com Pix.");
     if (fulfillment === "delivery" && !zoneId) return setError("Escolha o bairro de entrega.");
+    if (scheduling && !slot) return setError("Escolha o dia e o horário do agendamento.");
+    if (!scheduling && !open) return setError("A loja está fechada agora. Agende o pedido para outro horário.");
     if (needsChange && (changeCents === null || changeCents <= total)) {
       return setError("O valor para troco precisa ser maior que o total.");
     }
 
     window.localStorage.setItem(
       CUSTOMER_KEY,
-      JSON.stringify({ name, phone, street, number, complement, reference, zoneId } satisfies SavedCustomer),
+      JSON.stringify({ name, phone, street, number, complement, reference, zoneId, cep } satisfies SavedCustomer),
     );
 
     startTransition(async () => {
@@ -178,7 +279,9 @@ export default function CheckoutFormInner({
         address_number: number,
         address_complement: complement,
         address_reference: reference,
+        address_zip: cep,
         delivery_zone_id: zoneId,
+        scheduled_for: scheduling && slot ? slot.value : "",
         payment_method: payment,
         customer_document: needsCpf ? cpf : "",
         change_for: needsChange ? changeFor : "",
@@ -223,7 +326,13 @@ export default function CheckoutFormInner({
         }}
       >
         {error ? <Alert tone="error">{error}</Alert> : null}
-        {!open ? <Alert tone="error">A loja está fechada agora e não está recebendo pedidos.</Alert> : null}
+        {!open ? (
+          canSchedule ? (
+            <Alert tone="info">A loja está fechada agora, mas você pode agendar o pedido para um dos horários abaixo.</Alert>
+          ) : (
+            <Alert tone="error">A loja está fechada agora e não está recebendo pedidos.</Alert>
+          )
+        ) : null}
 
         <Block title="Seu pedido">
           <ul className="divide-y divide-border">
@@ -292,6 +401,64 @@ export default function CheckoutFormInner({
           </div>
         </Block>
 
+        {canSchedule ? (
+          <Block title="Quando você quer receber?">
+            <div className="grid grid-cols-2 gap-3">
+              <Option
+                selected={when === "now"}
+                onClick={() => setWhen("now")}
+                icon={<Timer className="size-5" />}
+                label="Agora"
+                hint={open ? `Em cerca de ${store.prep_time_minutes} min` : "Loja fechada agora"}
+                disabled={!open}
+              />
+              <Option
+                selected={when === "later"}
+                onClick={() => setWhen("later")}
+                icon={<CalendarClock className="size-5" />}
+                label="Agendar"
+                hint="Escolha dia e horário"
+              />
+            </div>
+            {scheduling && scheduleDay ? (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Dia" htmlFor="schedule-day">
+                  <select
+                    id="schedule-day"
+                    value={scheduleDay.date}
+                    onChange={(e) => {
+                      setScheduleDate(e.target.value);
+                      setScheduleSlot("");
+                    }}
+                    className="h-11 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    {scheduleDays.map((d) => (
+                      <option key={d.date} value={d.date}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={fulfillment === "pickup" ? "Retirar às" : "Receber às"} htmlFor="schedule-slot">
+                  <select
+                    id="schedule-slot"
+                    value={slot?.value ?? ""}
+                    onChange={(e) => setScheduleSlot(e.target.value)}
+                    className="h-11 rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">Escolha o horário</option>
+                    {scheduleDay.slots.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            ) : null}
+          </Block>
+        ) : null}
+
         <Block title="Seus dados">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Nome" htmlFor="name">
@@ -314,6 +481,30 @@ export default function CheckoutFormInner({
         {fulfillment === "delivery" ? (
           <Block title="Endereço de entrega">
             <div className="grid gap-4">
+              <Field label="CEP (opcional)" htmlFor="cep" hint="Preenche a rua e o bairro sozinho.">
+                <div className="relative max-w-48">
+                  <Input
+                    id="cep"
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    placeholder="00000-000"
+                    value={cep}
+                    onChange={(e) => {
+                      const value = formatCep(e.target.value);
+                      setCep(value);
+                      fillFromCep(value);
+                    }}
+                  />
+                  {cepLoading ? (
+                    <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                  ) : null}
+                </div>
+              </Field>
+              {cepStatus ? (
+                <p className={cn("-mt-2 text-sm", cepStatus.tone === "error" ? "text-red-600" : "text-muted-foreground")}>
+                  {cepStatus.text}
+                </p>
+              ) : null}
               <Field label="Bairro" htmlFor="zone">
                 <select
                   id="zone"
@@ -526,7 +717,9 @@ export default function CheckoutFormInner({
             </p>
           ) : null}
           <p className="mt-3 text-xs text-muted-foreground">
-            Tempo médio: {store.prep_time_minutes} minutos{fulfillment === "pickup" ? " para retirada" : ""}.
+            {scheduling && slot
+              ? `Agendado para ${scheduleDay!.label === "Hoje" || scheduleDay!.label === "Amanhã" ? scheduleDay!.label.toLowerCase() : scheduleDay!.label} às ${slot.label}.`
+              : `Tempo médio: ${store.prep_time_minutes} minutos${fulfillment === "pickup" ? " para retirada" : ""}.`}
           </p>
         </Block>
 
@@ -535,7 +728,7 @@ export default function CheckoutFormInner({
             type="submit"
             size="lg"
             className="mx-auto flex h-14 w-full max-w-2xl justify-between rounded-2xl text-base"
-            disabled={pending || !open || belowMinimum}
+            disabled={pending || !canSubmitNow || belowMinimum}
           >
             <span>
               {pending
@@ -544,7 +737,9 @@ export default function CheckoutFormInner({
                   : "Enviando pedido..."
                 : payment === "pix_online"
                   ? "Pagar com Pix"
-                  : "Enviar pedido"}
+                  : scheduling
+                    ? "Agendar pedido"
+                    : "Enviar pedido"}
             </span>
             <span>{formatBRL(total)}</span>
           </Button>

@@ -1,5 +1,5 @@
 import { Alert } from "@/components/ui/alert";
-import { HoursForm, LogoForm, StoreInfoForm, ZonesForm } from "@/components/painel/loja/store-forms";
+import { HoursForm, LogoForm, SiteSettingsForm, StoreInfoForm, ZonesForm } from "@/components/painel/loja/store-forms";
 import { getStoreSettings, requireMyStore } from "@/lib/stores";
 import { rootDomainLabel } from "@/lib/tenant";
 
@@ -28,6 +28,9 @@ export default async function MinhaLojaPage({ searchParams }: PageProps<"/painel
       </section>
       <section id="bairros" className="scroll-mt-20">
         <ZonesForm zones={zones} />
+      </section>
+      <section id="site" className="scroll-mt-20">
+        <SiteSettingsForm store={store} />
       </section>
     </div>
   );

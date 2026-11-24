@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Bell, BellOff, Bike, Clock, MessageCircle, Printer, Store as StoreIcon, X } from "lucide-react";
+import { Bell, BellOff, Bike, CalendarClock, Clock, MessageCircle, Printer, Store as StoreIcon, X } from "lucide-react";
 import { assignCourier } from "@/app/painel/motoboys/actions";
 import { updateOrderStatus } from "@/app/painel/pedidos/actions";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { nextStatus, nextStatusAction, STATUS_LABELS } from "@/lib/order-status";
 import { PAYMENT_LABELS } from "@/lib/pricing";
+import { formatScheduled } from "@/lib/schedule";
 import { createClient } from "@/lib/supabase/client";
 import type { Order, OrderStatus } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
@@ -27,6 +28,22 @@ function minutesAgo(iso: string, now: number) {
   if (m < 1) return "agora";
   if (m < 60) return `há ${m} min`;
   return `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+}
+
+/** Pedido agendado: quando o cliente quer receber, em destaque. */
+function ScheduledBadge({ order, large }: { order: Order; large?: boolean }) {
+  if (!order.scheduled_for) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1.5 rounded-lg bg-amber-100 font-semibold text-amber-900",
+        large ? "px-3 py-1.5 text-sm" : "px-2 py-0.5 text-xs",
+      )}
+    >
+      <CalendarClock className={large ? "size-4" : "size-3.5"} />
+      Agendado: {formatScheduled(order.scheduled_for)}
+    </span>
+  );
 }
 
 /** Pix online ainda não pago não aparece para a loja. */
@@ -326,6 +343,7 @@ function OrderCard({
           </span>
         </div>
         <p className="truncate font-medium">{order.customer_name}</p>
+        <ScheduledBadge order={order} />
         <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
           {order.fulfillment === "delivery" ? <Bike className="size-3.5" /> : <StoreIcon className="size-3.5" />}
           {order.fulfillment === "delivery" ? order.address_district : "Retirada"}
@@ -405,6 +423,11 @@ function OrderDialog({
               new Date(order.created_at),
             )}
           </p>
+          {order.scheduled_for ? (
+            <div className="mt-2">
+              <ScheduledBadge order={order} large />
+            </div>
+          ) : null}
         </div>
 
         <section className="grid gap-1 rounded-xl bg-muted/60 p-4 text-sm">

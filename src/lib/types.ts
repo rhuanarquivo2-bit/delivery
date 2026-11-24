@@ -20,6 +20,15 @@ export type Store = {
   pix_provider: "mercadopago" | "asaas" | "demo" | null;
   /** Leituras de cardápio por foto já usadas (só conta em loja de demonstração). */
   demo_ai_reads: number;
+  /** Pedido agendado: o cliente escolhe dia e horário, até `schedule_days_ahead` dias à frente. */
+  accepts_scheduled: boolean;
+  schedule_days_ahead: number;
+  /** Janela com as promoções do dia quando o cliente abre o site. */
+  show_promo_popup: boolean;
+  /** Comprovante sai com a via da cozinha (sem preços) junto. */
+  print_kitchen_copy: boolean;
+  facebook_pixel_id: string | null;
+  google_analytics_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -145,6 +154,9 @@ export type Order = {
   address_complement: string | null;
   address_district: string | null;
   address_reference: string | null;
+  address_zip: string | null;
+  /** Pedido agendado: quando o cliente quer receber. null = para agora. */
+  scheduled_for: string | null;
   subtotal_cents: number;
   delivery_fee_cents: number;
   discount_cents: number;

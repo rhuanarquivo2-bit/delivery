@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Clock, MessageCircle, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, Clock, MessageCircle, XCircle } from "lucide-react";
 import { AutoRefresh } from "@/components/loja/auto-refresh";
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
 import { PixPayment } from "@/components/loja/pix-payment";
+import { TrackPurchase } from "@/components/loja/store-tracking";
+import { formatScheduled } from "@/lib/schedule";
 import { getPublicStore } from "@/lib/stores";
 import { customerStatusLabel, customerSteps } from "@/lib/order-status";
 import { changeDue, PAYMENT_LABELS } from "@/lib/pricing";
@@ -31,6 +33,7 @@ type PublicOrder = {
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
   paid_at: string | null;
+  scheduled_for: string | null;
   pix: { qr_code: string; qr_base64: string | null; expires_at: string } | null;
   change_for_cents: number | null;
   created_at: string;
@@ -62,7 +65,9 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   const { data } = await supabase.rpc("get_public_order", { p_token: token });
   const order = data as PublicOrder | null;
   if (!order || order.store.slug !== slug) notFound();
-  const isDemo = (await getPublicStore(slug))?.store.is_demo ?? false;
+  const storeData = (await getPublicStore(slug))?.store;
+  const isDemo = storeData?.is_demo ?? false;
+  const hasTracking = Boolean(storeData?.facebook_pixel_id || storeData?.google_analytics_id);
 
   const steps = customerSteps(order.fulfillment);
   const cancelled = order.status === "cancelled";
@@ -77,6 +82,9 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
     <div className="flex-1" style={{ "--brand": order.store.primary_color } as React.CSSProperties}>
       {isDemo ? <DemoStoreBanner /> : null}
       {!finished && !awaitingPix ? <AutoRefresh seconds={15} /> : null}
+      {hasTracking && !awaitingPix && !pixExpired && !cancelled ? (
+        <TrackPurchase orderKey={token} totalCents={order.total_cents} />
+      ) : null}
       <main className="mx-auto grid w-full max-w-xl gap-5 px-4 py-8">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">{order.store.name}</p>
@@ -90,6 +98,14 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
             {cancelled ? <XCircle className="size-4" /> : awaitingPix ? <Clock className="size-4" /> : <CheckCircle2 className="size-4" />}
             {awaitingPix ? "Aguardando pagamento" : customerStatusLabel(order.status, order.fulfillment)}
           </p>
+          {order.scheduled_for && !cancelled ? (
+            <p className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
+              <CalendarClock className="size-4 text-brand" />
+              <span>
+                Agendado para <strong>{formatScheduled(order.scheduled_for).replace(/^Hoje/, "hoje").replace(/^Amanhã/, "amanhã")}</strong>
+              </span>
+            </p>
+          ) : null}
           {pixExpired ? (
             <div className="mt-3 grid justify-items-center gap-2 text-sm text-muted-foreground">
               <p>O prazo para pagar o Pix acabou e o pedido foi cancelado. Nada foi cobrado.</p>
@@ -104,7 +120,9 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
             </p>
           ) : order.status === "pending" && !awaitingPix ? (
             <p className="mt-2 text-sm text-muted-foreground">
-              Recebemos seu pedido! Assim que a loja aceitar, ele vai para o preparo.
+              {order.scheduled_for
+                ? "Recebemos seu pedido agendado! A loja vai confirmar e preparar para o horário escolhido."
+                : "Recebemos seu pedido! Assim que a loja aceitar, ele vai para o preparo."}
             </p>
           ) : null}
         </div>
