@@ -18,8 +18,8 @@ type Item = { href: string; label: string; icon: LucideIcon; soon?: boolean };
 
 const ITEMS: Item[] = [
   { href: "/painel", label: "Início", icon: Home },
-  { href: "/painel/pedidos", label: "Pedidos", icon: ClipboardList, soon: true },
-  { href: "/painel/cardapio", label: "Cardápio", icon: LayoutGrid, soon: true },
+  { href: "/painel/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/painel/cardapio", label: "Cardápio", icon: LayoutGrid },
   { href: "/painel/cupons", label: "Cupons", icon: Ticket, soon: true },
   { href: "/painel/financeiro", label: "Financeiro", icon: Wallet, soon: true },
   { href: "/painel/motoboys", label: "Motoboys", icon: Bike, soon: true },

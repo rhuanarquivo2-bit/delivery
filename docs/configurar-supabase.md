@@ -5,8 +5,11 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
 1. Crie uma conta em https://supabase.com e clique em **New project**.
    - Região: **South America (São Paulo)**.
    - Guarde a senha do banco num lugar seguro.
-2. Abra **SQL Editor > New query**, cole todo o conteúdo de
-   `supabase/migrations/20261124000000_fundacao.sql` e clique em **Run**.
+2. Abra **SQL Editor > New query** e rode, **um de cada vez e nesta ordem**, o conteúdo de cada
+   arquivo da pasta `supabase/migrations/`:
+   1. `20261124000000_fundacao.sql` (lojas, horários, bairros, imagens)
+   2. `20261124010000_cardapio_pedidos.sql` (cardápio e pedidos; também liga os pedidos ao vivo)
+
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:
    - **Site URL**: o endereço do site (em desenvolvimento, `http://localhost:3000`).
