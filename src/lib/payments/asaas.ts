@@ -1,5 +1,6 @@
 import "server-only";
 import { PaymentError, toCents, toReais, type PixGateway } from "./types";
+import { APP_NAME } from "@/lib/brand";
 
 /**
  * Asaas (API v3). A chave de API da conta da loja vai no header `access_token`.
@@ -16,7 +17,7 @@ async function call<T>(token: string, path: string, init: RequestInit = {}): Pro
     headers: {
       access_token: token,
       "Content-Type": "application/json",
-      "User-Agent": "PedidoFacil/1.0",
+      "User-Agent": "Fomely/1.0",
     },
     cache: "no-store",
   });
@@ -107,7 +108,7 @@ export const asaas: PixGateway & {
     await call(token, "/webhooks", {
       method: "POST",
       body: JSON.stringify({
-        name: "Pedido Fácil - pagamentos",
+        name: `${APP_NAME} - pagamentos`,
         url,
         email,
         enabled: true,
