@@ -16,22 +16,24 @@ import {
   Store as StoreIcon,
   Ticket,
   Timer,
+  UserCheck,
   X,
   Zap,
 } from "lucide-react";
-import { checkCoupon, placeOrder } from "@/app/loja/[slug]/actions";
+import { checkCoupon, lookupCustomer, placeOrder } from "@/app/loja/[slug]/actions";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
+import { rememberOrders } from "@/lib/my-orders";
 import { formatCep, lookupCep, matchZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
 import { scheduleOptions } from "@/lib/schedule";
 import { trackBeginCheckout } from "@/lib/tracking";
 import type { Category, StoreHour } from "@/lib/types";
-import { cn, formatBRL, parseBRLToCents } from "@/lib/utils";
+import { cn, formatBRL, formatPhone, parseBRLToCents } from "@/lib/utils";
 
 type StoreInfo = {
   id: string;
@@ -66,14 +68,6 @@ function loadCustomer(): SavedCustomer {
   } catch {
     return {};
   }
-}
-
-function formatPhone(value: string) {
-  const d = value.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
 export default function CheckoutFormInner({
@@ -170,6 +164,43 @@ export default function CheckoutFormInner({
   const needsCpf = payment === "pix_online" && store.pix_provider === "asaas";
   const changeCents = needsChange ? parseBRLToCents(changeFor) : null;
   const change = changeDue(total, changeCents);
+
+  // Cliente que já pediu: ao completar o celular, puxa nome e endereço do último pedido.
+  const [welcome, setWelcome] = useState<{ name: string; orders: number } | null>(null);
+  const lookedUp = useRef("");
+  const zonesRef = useRef(zones);
+  useEffect(() => {
+    zonesRef.current = zones;
+  }, [zones]);
+  const phoneDigits = phone.replace(/\D/g, "");
+  useEffect(() => {
+    if (phoneDigits.length < 10 || lookedUp.current === phoneDigits) return;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      lookedUp.current = phoneDigits;
+      lookupCustomer(store.id, phoneDigits)
+        .then((found) => {
+          if (cancelled || !found) return;
+          setName(found.name);
+          if (found.street) {
+            setStreet(found.street);
+            setNumber(found.number ?? "");
+            setComplement(found.complement ?? "");
+            setReference(found.reference ?? "");
+            setCep(formatCep(found.cep ?? ""));
+            if (found.zoneId && zonesRef.current.some((z) => z.id === found.zoneId)) setZoneId(found.zoneId);
+          }
+          setWelcome({ name: found.name.split(" ")[0], orders: found.orders });
+        })
+        .catch(() => {
+          lookedUp.current = "";
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [phoneDigits, store.id]);
 
   // Marketing da loja (Pixel/Analytics): uma vez ao abrir o checkout.
   const tracked = useRef(false);
@@ -303,6 +334,7 @@ export default function CheckoutFormInner({
         return;
       }
       cart.clear();
+      rememberOrders(store.slug, [result.token]);
       router.push(`/loja/${store.slug}/pedido/${result.token}`);
     });
   };
@@ -459,11 +491,8 @@ export default function CheckoutFormInner({
           </Block>
         ) : null}
 
-        <Block title="Seus dados">
+        <Block title="Seus dados" subtitle="Já pediu aqui? Digite seu celular e a gente preenche o resto.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Nome" htmlFor="name">
-              <Input id="name" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
-            </Field>
             <Field label="Celular (WhatsApp)" htmlFor="phone">
               <Input
                 id="phone"
@@ -472,10 +501,25 @@ export default function CheckoutFormInner({
                 required
                 placeholder="(11) 99999-9999"
                 value={phone}
-                onChange={(e) => setPhone(formatPhone(e.target.value))}
+                onChange={(e) => {
+                  setPhone(formatPhone(e.target.value));
+                  setWelcome(null);
+                }}
               />
             </Field>
+            <Field label="Nome" htmlFor="name">
+              <Input id="name" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
           </div>
+          {welcome ? (
+            <p className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <UserCheck className="mt-0.5 size-4 shrink-0" />
+              <span>
+                Que bom te ver de novo, <strong>{welcome.name}</strong>! Preenchemos seus dados do último pedido. Confira
+                o endereço antes de finalizar.
+              </span>
+            </p>
+          ) : null}
         </Block>
 
         {fulfillment === "delivery" ? (
