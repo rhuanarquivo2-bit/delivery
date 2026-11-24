@@ -1,0 +1,20 @@
+# Configurar o Supabase
+
+Leva uns 10 minutos e o plano gratuito é suficiente para começar.
+
+1. Crie uma conta em https://supabase.com e clique em **New project**.
+   - Região: **South America (São Paulo)**.
+   - Guarde a senha do banco num lugar seguro.
+2. Abra **SQL Editor > New query**, cole todo o conteúdo de
+   `supabase/migrations/20261124000000_fundacao.sql` e clique em **Run**.
+   Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
+3. Em **Authentication > URL Configuration**:
+   - **Site URL**: o endereço do site (em desenvolvimento, `http://localhost:3000`).
+   - **Redirect URLs**: adicione `http://localhost:3000/auth/confirmar` e, depois do deploy,
+     `https://SEU-DOMINIO/auth/confirmar`.
+4. Em **Project Settings > API**, copie a **Project URL** e a **Publishable key**
+   para o arquivo `.env.local` (use o `.env.example` como modelo).
+5. Rode `npm run dev` e acesse http://localhost:3000/entrar?modo=cadastro.
+
+Para testar sem confirmar e-mail, desligue **Authentication > Sign In / Providers > Email > Confirm email**.
+Ligue de novo antes de colocar no ar.
