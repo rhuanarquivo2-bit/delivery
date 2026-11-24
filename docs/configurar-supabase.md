@@ -57,8 +57,8 @@ ou com o sandbox do Asaas (`$aact_hmlg_...`).
 A demonstração (`/demo`) cria uma loja de exemplo sem pedir cadastro. Para funcionar:
 
 1. Em **Authentication > Sign In / Providers**, ligue **Allow anonymous sign-ins**.
-2. Recomendado: em **Authentication > Attack Protection**, ligue o **captcha**, para que robôs
-   não criem demonstrações em massa.
+2. Deixe o **captcha** desligado em **Authentication > Attack Protection**. O site ainda não
+   envia o captcha, e com ele ligado o cadastro e a demonstração são recusados.
 3. O Pix simulado da demonstração usa a mesma `SUPABASE_SECRET_KEY` do Pix online.
    Sem ela, a demonstração funciona com pagamento na entrega.
 
