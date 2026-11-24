@@ -161,14 +161,16 @@ function Switch({
   );
 }
 
-export function SiteSettingsForm({ store }: { store: Store }) {
+export type UpsellProduct = { id: string; name: string; category: string };
+
+export function SiteSettingsForm({ store, products = [] }: { store: Store; products?: UpsellProduct[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateSiteSettings, {});
   const e = state.errors ?? {};
   return (
     <Card>
       <CardHeader>
         <CardTitle>Site e pedidos</CardTitle>
-        <CardDescription>Agendamento, promoções, impressão e ferramentas de anúncio.</CardDescription>
+        <CardDescription>Agendamento, promoções, sugestões no carrinho, impressão e ferramentas de anúncio.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={keepValuesOnSubmit(action)} className="grid gap-4">
@@ -207,6 +209,32 @@ export function SiteSettingsForm({ store }: { store: Store }) {
             title="Imprimir também a via da cozinha"
             description="O comprovante sai em duas vias: a do caixa, com preços, e a da cozinha, sem preços e com letra maior."
           />
+          <Switch
+            name="upsell_enabled"
+            defaultChecked={store.upsell_enabled}
+            title="Sugerir itens no carrinho"
+            description="Na hora de finalizar, o site sugere até 3 produtos: primeiro os que você fixar abaixo, depois os que seus clientes costumam pedir juntos e, sem histórico, bebidas e acompanhamentos que ainda não estão no carrinho."
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <Field key={i} label={`Sugestão fixa ${i + 1}`} htmlFor={`upsell_${i + 1}`}>
+                  <select
+                    id={`upsell_${i + 1}`}
+                    name={`upsell_${i + 1}`}
+                    defaultValue={store.upsell_product_ids[i] ?? ""}
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">Automática</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.category})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ))}
+            </div>
+          </Switch>
           <div className="grid gap-4 rounded-xl border border-border p-4">
             <div>
               <p className="text-sm font-semibold">Anúncios e métricas</p>
