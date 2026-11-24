@@ -16,6 +16,8 @@ export type Store = {
   min_order_cents: number;
   prep_time_minutes: number;
   is_demo: boolean;
+  /** Pix online: conta conectada no painel (null = loja não recebe Pix online). */
+  pix_provider: "mercadopago" | "asaas" | null;
   created_at: string;
   updated_at: string;
 };
@@ -107,6 +109,8 @@ export type Category = {
 export type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
 export type Fulfillment = "delivery" | "pickup";
 export type PaymentMethod = "pix_online" | "pix_delivery" | "card_delivery" | "cash";
+/** on_delivery = paga na entrega; awaiting/expired = Pix online ainda não pago (não entra no painel). */
+export type PaymentStatus = "on_delivery" | "awaiting" | "paid" | "expired";
 
 export type OrderItemOption = { group: string; name: string; price_cents: number };
 
@@ -145,6 +149,9 @@ export type Order = {
   coupon_code: string | null;
   total_cents: number;
   payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  paid_at: string | null;
+  customer_document: string | null;
   change_for_cents: number | null;
   notes: string | null;
   cancel_reason: string | null;

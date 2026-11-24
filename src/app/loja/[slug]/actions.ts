@@ -1,6 +1,9 @@
 "use server";
 
 import { z } from "zod";
+import { isValidDocument, onlyDigits } from "@/lib/document";
+import { createPixForOrder, PaymentError, syncOrderPayment } from "@/lib/payments";
+import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { AppliedCoupon } from "@/lib/pricing";
 import type { OrderQuote } from "@/lib/types";
@@ -31,6 +34,8 @@ const ERRORS: Record<string, string> = {
   cupom_ja_usado: "Você já usou esse cupom.",
   cupom_primeiro_pedido: "Esse cupom é só para o primeiro pedido na loja.",
   cupom_so_entrega: "Esse cupom de entrega grátis vale só para pedidos com entrega.",
+  documento_obrigatorio: "Informe seu CPF para pagar com Pix.",
+  documento_invalido: "CPF inválido. Confira os números.",
 };
 
 function errorMessage(error: { message: string; details?: string | null }) {
@@ -53,7 +58,14 @@ const schema = z.object({
   address_complement: z.string().max(80).default(""),
   address_reference: z.string().max(120).default(""),
   delivery_zone_id: z.string().default(""),
-  payment_method: z.enum(["pix_delivery", "card_delivery", "cash"], { message: "Escolha a forma de pagamento." }),
+  payment_method: z.enum(["pix_online", "pix_delivery", "card_delivery", "cash"], {
+    message: "Escolha a forma de pagamento.",
+  }),
+  customer_document: z
+    .string()
+    .default("")
+    .transform(onlyDigits)
+    .refine((v) => v === "" || isValidDocument(v), "CPF inválido. Confira os números."),
   change_for: z.string().default(""),
   notes: z.string().max(300).default(""),
   coupon_code: z.string().trim().max(20).default(""),
@@ -86,6 +98,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     if (changeFor === null) return { ok: false, message: "Valor para troco inválido." };
   }
 
+  const pixOnline = o.payment_method === "pix_online";
+  if (pixOnline && !isAdminConfigured) return { ok: false, message: ERRORS.pagamento_indisponivel };
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("place_order", {
     p_store_id: o.store_id,
@@ -99,6 +114,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       address_reference: o.address_reference,
       delivery_zone_id: o.fulfillment === "delivery" ? o.delivery_zone_id || null : null,
       payment_method: o.payment_method,
+      customer_document: pixOnline ? o.customer_document || null : null,
       change_for_cents: changeFor,
       notes: o.notes,
       coupon_code: o.coupon_code || null,
@@ -109,8 +125,41 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   if (error) {
     return { ok: false, message: errorMessage(error) ?? "Não foi possível enviar o pedido. Tente de novo." };
   }
-  const result = data as { token: string; number: number };
+  const result = data as { id: string; token: string; number: number; total_cents: number };
+
+  if (pixOnline) {
+    const { data: store } = await supabase.from("stores").select("name").eq("id", o.store_id).single();
+    try {
+      await createPixForOrder({
+        orderId: result.id,
+        storeId: o.store_id,
+        storeName: store?.name ?? "Loja",
+        orderNumber: result.number,
+        amountCents: result.total_cents,
+        customer: { name: o.customer_name, phone: o.customer_phone, document: o.customer_document || null },
+      });
+    } catch (err) {
+      const message = err instanceof PaymentError ? err.message : "Não conseguimos gerar o Pix agora.";
+      return { ok: false, message };
+    }
+  }
   return { ok: true, token: result.token, number: result.number };
+}
+
+/**
+ * A página do pedido chama enquanto espera o Pix: confere direto no Mercado Pago/Asaas.
+ * Só precisa do link do pedido (o mesmo que o cliente já tem).
+ */
+export async function checkPixPayment(token: string): Promise<string | null> {
+  if (!isAdminConfigured || !z.string().uuid().safeParse(token).success) return null;
+  const { data } = await createAdminClient()
+    .from("orders")
+    .select("id, payment_status")
+    .eq("public_token", token)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.payment_status !== "awaiting") return data.payment_status;
+  return syncOrderPayment(data.id);
 }
 
 const quoteSchema = schema

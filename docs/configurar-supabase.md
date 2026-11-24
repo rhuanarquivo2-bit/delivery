@@ -10,6 +10,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    1. `20261124000000_fundacao.sql` (lojas, horários, bairros, imagens)
    2. `20261124010000_cardapio_pedidos.sql` (cardápio e pedidos; também liga os pedidos ao vivo)
    3. `20261124020000_promocoes_cupons.sql` (promoções, cupons e importação do cardápio por foto)
+   4. `20261124030000_pix_financeiro.sql` (Pix online, contas de recebimento e relatório financeiro)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:
@@ -32,3 +33,19 @@ Ligue de novo antes de colocar no ar.
    **Vercel > Project > Settings > Environment Variables**. Não compartilhe a chave com ninguém.
 
 Sem a chave, a tela "Importar por foto" avisa que a leitura ainda não está ativa.
+
+## Pix online (opcional)
+
+O Pix online usa a conta de cada loja no Mercado Pago ou no Asaas (o dono conecta em
+**Painel > Financeiro > Receber Pix online**). Para isso o servidor precisa de duas variáveis:
+
+1. `SUPABASE_SECRET_KEY`: em **Project Settings > API Keys**, copie uma **Secret key**
+   (`sb_secret_...`). Ela guarda e lê as chaves de recebimento das lojas e confirma os
+   pagamentos. Só no servidor: nunca use `NEXT_PUBLIC_` nem mostre para ninguém.
+2. `NEXT_PUBLIC_SITE_URL`: o endereço do site com https (ex.: `https://pedidofacil.com.br`).
+   É para onde o Mercado Pago e o Asaas mandam o aviso de pagamento.
+
+Sem a chave secreta, o checkout só oferece pagamento na entrega. Em desenvolvimento
+(`http://localhost`) não há aviso automático: a página do pedido confere o pagamento sozinha
+a cada 5 segundos, então dá para testar com a conta de testes do Mercado Pago (`TEST-...`)
+ou com o sandbox do Asaas (`$aact_hmlg_...`).

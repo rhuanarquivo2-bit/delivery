@@ -28,8 +28,12 @@ function minutesAgo(iso: string, now: number) {
   return `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
 }
 
+/** Pix online ainda não pago não aparece para a loja. */
+const isVisible = (o: Order) => o.payment_status !== "awaiting" && o.payment_status !== "expired";
+
 export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initialOrders: Order[] }) {
-  const [orders, setOrders] = useState(initialOrders);
+  const [allOrders, setOrders] = useState(initialOrders);
+  const orders = useMemo(() => allOrders.filter(isVisible), [allOrders]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState(COLUMNS[0].key);
   // O navegador só libera som depois de um clique, então começa desligado a cada visita.
@@ -42,6 +46,10 @@ export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initi
   useEffect(() => {
     knownIds.current = new Set(orders.map((o) => o.id));
   }, [orders]);
+  const allIds = useRef(new Set<string>());
+  useEffect(() => {
+    allIds.current = new Set(allOrders.filter((o) => o.order_items).map((o) => o.id));
+  }, [allOrders]);
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
   const unlock = useAlertSound(pendingCount > 0, soundOn);
@@ -75,7 +83,12 @@ export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initi
         { event: "*", schema: "public", table: "orders", filter: `store_id=eq.${storeId}` },
         (payload) => {
           if (payload.eventType === "INSERT") void fetchOrder((payload.new as Order).id);
-          else if (payload.eventType === "UPDATE") upsert(payload.new as Order);
+          else if (payload.eventType === "UPDATE") {
+            const row = payload.new as Order;
+            // Pix que acabou de ser pago: busca o pedido completo (com os itens).
+            if (isVisible(row) && !allIds.current.has(row.id)) void fetchOrder(row.id);
+            else upsert(row);
+          }
         },
       )
       .subscribe((status) => setLive(status === "SUBSCRIBED" ? "on" : status === "CLOSED" ? "off" : "connecting"));
@@ -92,6 +105,7 @@ export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initi
         .from("orders")
         .select("id")
         .eq("store_id", storeId)
+        .in("payment_status", ["on_delivery", "paid"])
         .gte("created_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
       for (const row of data ?? []) {
         if (!knownIds.current.has(row.id)) void fetchOrder(row.id);
@@ -235,7 +249,14 @@ function OrderCard({
           {order.fulfillment === "delivery" ? order.address_district : "Retirada"}
         </p>
         <div className="mt-1 flex items-center justify-between text-sm">
-          <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium">{PAYMENT_LABELS[order.payment_method]}</span>
+          <span
+            className={cn(
+              "rounded-md px-1.5 py-0.5 text-xs font-medium",
+              order.payment_status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-muted",
+            )}
+          >
+            {order.payment_status === "paid" ? "Pago online" : PAYMENT_LABELS[order.payment_method]}
+          </span>
           <span className="font-semibold">{formatBRL(order.total_cents)}</span>
         </div>
         {order.status === "out_for_delivery" || order.status === "ready" || order.status === "cancelled" ? (
@@ -321,6 +342,11 @@ function OrderDialog({ order, onClose, onChange }: { order: Order; onClose: () =
 
         {cancelling ? (
           <div className="grid gap-2 rounded-xl bg-red-50 p-4">
+            {order.payment_status === "paid" ? (
+              <p className="text-sm text-red-800">
+                Este pedido já foi pago com Pix. Depois de cancelar, devolva o valor pelo app da sua conta de recebimento.
+              </p>
+            ) : null}
             <label className="text-sm font-medium text-red-800" htmlFor="reason">
               Motivo do cancelamento (opcional)
             </label>

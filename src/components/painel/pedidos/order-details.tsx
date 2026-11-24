@@ -58,6 +58,12 @@ export function OrderTotals({ order }: { order: Order }) {
         <dt>Pagamento</dt>
         <dd className="font-semibold">{PAYMENT_LABELS[order.payment_method]}</dd>
       </div>
+      {order.payment_status === "paid" ? (
+        <div className="flex justify-between font-bold">
+          <dt>Pago online</dt>
+          <dd>Não cobrar na entrega</dd>
+        </div>
+      ) : null}
       {order.payment_method === "cash" ? (
         change !== null ? (
           <>

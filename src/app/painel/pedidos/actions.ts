@@ -23,6 +23,7 @@ export async function updateOrderStatus(input: z.input<typeof schema>) {
     .update(status === "cancelled" ? { status, cancel_reason: reason || null } : { status })
     .eq("id", orderId)
     .eq("store_id", store.id)
+    .in("payment_status", ["on_delivery", "paid"])
     .select("*")
     .maybeSingle();
   if (error || !data) return { ok: false as const, message: "Não foi possível atualizar o pedido." };

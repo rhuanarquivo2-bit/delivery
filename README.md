@@ -87,6 +87,21 @@ resultado aparece numa tela de revisão ao lado da foto. Itens sem preço ou dif
 ficam destacados. Só depois da revisão a função `import_menu` grava tudo de uma vez. Precisa
 de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
 
+## Pix online e financeiro
+
+- Cada loja conecta a própria conta do **Mercado Pago** (Access Token) ou do **Asaas** (chave
+  de API) em `/painel/financeiro/recebimento`. O dinheiro cai direto na conta da loja.
+  As chaves ficam em `store_payment_accounts`, que só o servidor lê (`SUPABASE_SECRET_KEY`).
+- Pedido com "Pagar agora com Pix" nasce como `awaiting` e não aparece no painel. A cobrança é
+  criada em `src/lib/payments/` e o cliente vê o QR Code e o copia e cola. O pagamento é
+  confirmado sempre consultando a API do provedor (aviso em `/api/pagamentos/<provedor>`, botão
+  "Já paguei" e conferência a cada 5 s); só então `mark_order_paid` libera o pedido.
+- Pix não pago em 30 minutos: a cobrança é cancelada e o pedido também (`expire_order_payment`).
+- O Asaas exige CPF: o checkout pede quando a loja usa Asaas.
+- `/painel/financeiro`: faturamento, ticket médio, totais por forma de pagamento (Pix online,
+  Pix/cartão/dinheiro na entrega), troco, vendas por dia, mais vendidos, cupons e planilha CSV.
+  Os números vêm de `finance_report`, calculado no banco no horário de Brasília.
+
 ## Fases
 
 1. **Fundação**: login, cadastro da loja, horários, bairros e taxas, site base.
@@ -94,6 +109,7 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
    pagamento na entrega; pedidos ao vivo no painel; comprovante; acompanhamento do cliente.
 3. **IA e promoções**: cardápio por foto com tela de revisão; promoções programadas;
    cupons de desconto no checkout.
-4. Pix online e financeiro.
+4. **Pix online e financeiro**: Pix na hora pelo Mercado Pago ou Asaas; pedido só chega
+   depois de pago; tela Financeiro com totais por forma de pagamento e planilha.
 5. Motoboys.
 6. Modo demonstração e página de vendas.

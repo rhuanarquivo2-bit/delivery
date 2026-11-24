@@ -3,20 +3,28 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Banknote, ChevronLeft, CreditCard, Minus, Plus, QrCode, Store as StoreIcon, Bike, Ticket, X } from "lucide-react";
+import { Banknote, ChevronLeft, CreditCard, Minus, Plus, QrCode, Store as StoreIcon, Bike, Ticket, X, Zap } from "lucide-react";
 import { checkCoupon, placeOrder } from "@/app/loja/[slug]/actions";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
+import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
 import type { Category } from "@/lib/types";
 import { cn, formatBRL, parseBRLToCents } from "@/lib/utils";
 
-type StoreInfo = { id: string; slug: string; name: string; min_order_cents: number; prep_time_minutes: number };
+type StoreInfo = {
+  id: string;
+  slug: string;
+  name: string;
+  min_order_cents: number;
+  prep_time_minutes: number;
+  pix_provider: "mercadopago" | "asaas" | null;
+};
 type Zone = { id: string; name: string; fee: number };
-type Payment = "pix_delivery" | "card_delivery" | "cash";
+type Payment = "pix_online" | "pix_delivery" | "card_delivery" | "cash";
 
 const CUSTOMER_KEY = "cliente";
 
@@ -72,6 +80,7 @@ export default function CheckoutFormInner({
   const [needsChange, setNeedsChange] = useState(false);
   const [changeFor, setChangeFor] = useState("");
   const [notes, setNotes] = useState("");
+  const [cpf, setCpf] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [couponInput, setCouponInput] = useState("");
@@ -103,6 +112,7 @@ export default function CheckoutFormInner({
   const discount = couponUsable ? couponDiscount(couponUsable, subtotal, fee) : null;
   const total = Math.max(subtotal + fee - (discount ?? 0), 0);
   const belowMinimum = subtotal < store.min_order_cents;
+  const needsCpf = payment === "pix_online" && store.pix_provider === "asaas";
   const changeCents = needsChange ? parseBRLToCents(changeFor) : null;
   const change = changeDue(total, changeCents);
 
@@ -147,6 +157,7 @@ export default function CheckoutFormInner({
     setError(null);
     if (unavailable.length) return setError("Remova os itens indisponíveis do carrinho.");
     if (!payment) return setError("Escolha a forma de pagamento.");
+    if (needsCpf && !isValidDocument(cpf)) return setError("Informe um CPF válido para pagar com Pix.");
     if (fulfillment === "delivery" && !zoneId) return setError("Escolha o bairro de entrega.");
     if (needsChange && (changeCents === null || changeCents <= total)) {
       return setError("O valor para troco precisa ser maior que o total.");
@@ -169,6 +180,7 @@ export default function CheckoutFormInner({
         address_reference: reference,
         delivery_zone_id: zoneId,
         payment_method: payment,
+        customer_document: needsCpf ? cpf : "",
         change_for: needsChange ? changeFor : "",
         notes,
         // cupom abaixo do valor mínimo dele não vai (o resumo já avisa)
@@ -349,7 +361,38 @@ export default function CheckoutFormInner({
           </Block>
         ) : null}
 
-        <Block title="Pagamento na entrega" subtitle="Você paga quando receber o pedido.">
+        <Block
+          title={store.pix_provider ? "Pagamento" : "Pagamento na entrega"}
+          subtitle={store.pix_provider ? undefined : "Você paga quando receber o pedido."}
+        >
+          {store.pix_provider ? (
+            <div className="mb-4 grid gap-3">
+              <Option
+                selected={payment === "pix_online"}
+                onClick={() => {
+                  setPayment("pix_online");
+                  setNeedsChange(false);
+                }}
+                icon={<Zap className="size-5" />}
+                label="Pagar agora com Pix"
+                hint="Você paga pelo app do banco e o pedido segue na hora"
+              />
+              {needsCpf ? (
+                <Field label="CPF de quem vai pagar" htmlFor="cpf" hint="O banco pede o CPF para gerar o Pix.">
+                  <Input
+                    id="cpf"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="000.000.000-00"
+                    className="max-w-56"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  />
+                </Field>
+              ) : null}
+              <p className="pt-1 text-sm font-medium text-muted-foreground">Ou pague na entrega</p>
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-3">
             <Option
               selected={payment === "pix_delivery"}
@@ -494,7 +537,15 @@ export default function CheckoutFormInner({
             className="mx-auto flex h-14 w-full max-w-2xl justify-between rounded-2xl text-base"
             disabled={pending || !open || belowMinimum}
           >
-            <span>{pending ? "Enviando pedido..." : "Enviar pedido"}</span>
+            <span>
+              {pending
+                ? payment === "pix_online"
+                  ? "Gerando o Pix..."
+                  : "Enviando pedido..."
+                : payment === "pix_online"
+                  ? "Pagar com Pix"
+                  : "Enviar pedido"}
+            </span>
             <span>{formatBRL(total)}</span>
           </Button>
         </div>
