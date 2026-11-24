@@ -21,7 +21,7 @@ type StoreInfo = {
   name: string;
   min_order_cents: number;
   prep_time_minutes: number;
-  pix_provider: "mercadopago" | "asaas" | null;
+  pix_provider: "mercadopago" | "asaas" | "demo" | null;
 };
 type Zone = { id: string; name: string; fee: number };
 type Payment = "pix_online" | "pix_delivery" | "card_delivery" | "cash";

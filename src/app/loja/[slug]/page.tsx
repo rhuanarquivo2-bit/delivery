@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Bike, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-react";
+import { DemoStoreBanner } from "@/components/loja/demo-banner";
 import { StoreMenu } from "@/components/loja/store-menu";
 import { getMenu } from "@/lib/menu";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -42,6 +43,7 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
 
   return (
     <div className="flex-1" style={{ "--brand": store.primary_color } as React.CSSProperties}>
+      {store.is_demo ? <DemoStoreBanner /> : null}
       <div className="h-32 bg-brand sm:h-44" />
       <main className="mx-auto -mt-14 max-w-3xl px-4 pb-28">
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">

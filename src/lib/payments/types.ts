@@ -1,8 +1,10 @@
-export type PixProvider = "mercadopago" | "asaas";
+/** "demo" só existe nas lojas de demonstração (Pix simulado, sem dinheiro de verdade). */
+export type PixProvider = "mercadopago" | "asaas" | "demo";
 
 export const PROVIDER_LABELS: Record<PixProvider, string> = {
   mercadopago: "Mercado Pago",
   asaas: "Asaas",
+  demo: "Pix de demonstração",
 };
 
 export type PixCustomer = { name: string; phone: string; document: string | null };

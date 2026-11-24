@@ -1,7 +1,7 @@
 # Pedido Fácil (nome provisório)
 
 Plataforma de cardápio digital e delivery para pizzarias, hamburguerias e lanchonetes.
-Cada loja tem o próprio site, painel do operador e, nas próximas fases, app do motoboy.
+Cada loja tem o próprio site, painel do operador e site do motoboy.
 
 Stack: Next.js 16 (App Router) + TypeScript, Tailwind CSS 4, Supabase (Postgres, Auth, Storage) e Vercel.
 
@@ -114,6 +114,23 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
   (dinheiro com troco, cartão, Pix ou já pago), botões "Saí para entrega" e "Entreguei",
   ganhos do dia e dos últimos 7 dias. Tudo passa por `courier_portal` e `courier_update`.
 
+## Demonstração e página de vendas
+
+- `/` é a página de vendas: o que o sistema faz, telas reais, comparação com marketplace,
+  perguntas frequentes e os botões "Testar agora, sem cadastro" e "Criar minha loja".
+  As imagens ficam em `public/vendas/`. Para mostrar o botão de WhatsApp de vendas, preencha
+  `NEXT_PUBLIC_SALES_WHATSAPP`.
+- `/demo` cria, sem cadastro, uma loja de exemplo só para o visitante ("Pizzaria Bella Massa"):
+  cardápio, promoções, cupons, dois motoboys, 13 dias de pedidos e 3 pedidos em andamento.
+  Usa o login anônimo do Supabase e a função `create_demo_store`. A mesma sessão volta para a
+  mesma loja.
+- No painel da demonstração aparece uma barra com "Simular pedido", "Ver como cliente",
+  "Ver como motoboy" e "Criar minha loja", e um roteiro de 6 passos na tela inicial.
+- O Pix da demonstração é falso (QR Code de mentira e botão "Simular pagamento"). A loja de
+  demonstração não conecta conta de recebimento e lê no máximo 3 fotos de cardápio.
+- Lojas de demonstração somem depois de 24 horas (`purge_demo_stores`, chamada a cada nova
+  demonstração).
+
 ## Fases
 
 1. **Fundação**: login, cadastro da loja, horários, bairros e taxas, site base.
@@ -125,4 +142,5 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
    depois de pago; tela Financeiro com totais por forma de pagamento e planilha.
 5. **Motoboys**: cadastro, escolha do motoboy por pedido, site do motoboy com entregas e
    ganhos do dia, acerto diário com marcação de pago.
-6. Modo demonstração e página de vendas.
+6. **Demonstração e página de vendas**: loja de exemplo sem cadastro com pedidos, Pix
+   simulado e motoboys; página de vendas com telas reais.

@@ -146,6 +146,14 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   return { ok: true, token: result.token, number: result.number };
 }
 
+/** Loja de demonstração: faz de conta que o cliente pagou o Pix. */
+export async function simulateDemoPix(token: string) {
+  if (!z.string().uuid().safeParse(token).success) return false;
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("demo_pay_pix", { p_token: token });
+  return Boolean(data);
+}
+
 /**
  * A página do pedido chama enquanto espera o Pix: confere direto no Mercado Pago/Asaas.
  * Só precisa do link do pedido (o mesmo que o cliente já tem).

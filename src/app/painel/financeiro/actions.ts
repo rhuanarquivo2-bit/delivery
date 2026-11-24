@@ -19,6 +19,7 @@ const schema = z.object({
 export async function connectPixAccount(_prev: ConnectState, formData: FormData): Promise<ConnectState> {
   const { store, role } = await requireMyStore();
   if (role !== "owner") return { message: "Só o dono da loja pode conectar a conta de recebimento." };
+  if (store.is_demo) return { message: "Na demonstração o Pix é simulado. Crie sua loja para conectar uma conta de verdade." };
   if (!isAdminConfigured) {
     return { message: "Falta configurar a chave secreta do Supabase (SUPABASE_SECRET_KEY) no servidor." };
   }
@@ -88,6 +89,7 @@ export async function connectPixAccount(_prev: ConnectState, formData: FormData)
 export async function disconnectPixAccount(): Promise<ConnectState> {
   const { store, role } = await requireMyStore();
   if (role !== "owner") return { message: "Só o dono da loja pode desconectar a conta." };
+  if (store.is_demo) return { message: "Na demonstração o Pix é simulado e fica sempre ligado." };
   if (!isAdminConfigured) return { message: "Falta configurar a chave secreta do Supabase no servidor." };
   const admin = createAdminClient();
   await admin.from("stores").update({ pix_provider: null }).eq("id", store.id);

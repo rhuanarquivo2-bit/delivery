@@ -33,7 +33,12 @@ export default async function RecebimentoPage() {
           sua conta.
         </p>
       </div>
-      {!isAdminConfigured ? (
+      {store.is_demo ? (
+        <Alert tone="info">
+          Na demonstração o Pix é simulado: o cliente vê o QR Code e um botão &quot;Simular pagamento&quot;. Na sua loja de
+          verdade, é aqui que você conecta o Mercado Pago ou o Asaas.
+        </Alert>
+      ) : !isAdminConfigured ? (
         <Alert tone="info">
           Para ativar o Pix online, falta configurar a chave secreta do Supabase (SUPABASE_SECRET_KEY) no servidor. Veja o
           passo a passo em docs/configurar-supabase.md.

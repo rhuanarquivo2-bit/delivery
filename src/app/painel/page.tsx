@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { CheckCircle2, Circle, ExternalLink } from "lucide-react";
+import { DemoTour } from "@/components/painel/demo-tour";
 import { CreateStoreForm } from "@/components/painel/loja/create-store-form";
 import { OpenToggle } from "@/components/painel/open-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { isOpenNow } from "@/lib/hours";
-import { getMyStore, getStoreSettings } from "@/lib/stores";
+import { redirect } from "next/navigation";
+import { getMyStore, getStoreSettings, requireUser } from "@/lib/stores";
 import { rootDomainLabel, storeUrl } from "@/lib/tenant";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatBRL } from "@/lib/utils";
@@ -20,6 +22,8 @@ export default async function PainelHome() {
   const mine = await getMyStore();
 
   if (!mine) {
+    // visitante da demonstração cuja loja de teste já expirou: monta outra
+    if ((await requireUser()).isAnonymous) redirect("/demo");
     return (
       <div className="mx-auto max-w-lg">
         <h1 className="text-2xl font-bold tracking-tight">Vamos criar sua loja</h1>
@@ -64,7 +68,7 @@ export default async function PainelHome() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Olá!</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{store.is_demo ? "Bem-vindo à demonstração!" : "Olá!"}</h1>
           <p className="text-muted-foreground">Este é o painel da {store.name}.</p>
         </div>
         <Link href={storeUrl(store.slug)} target="_blank" className={buttonVariants({ variant: "outline" })}>
@@ -108,7 +112,9 @@ export default async function PainelHome() {
         </Link>
       </div>
 
-      {doneCount < steps.length ? (
+      {store.is_demo ? <DemoTour storeHref={storeUrl(store.slug)} /> : null}
+
+      {!store.is_demo && doneCount < steps.length ? (
         <Card>
           <CardHeader>
             <CardTitle>Deixe sua loja pronta</CardTitle>
@@ -135,7 +141,6 @@ export default async function PainelHome() {
         </Card>
       ) : null}
 
-      <p className="text-sm text-muted-foreground">Cupons, financeiro e motoboys chegam nas próximas fases.</p>
     </div>
   );
 }
