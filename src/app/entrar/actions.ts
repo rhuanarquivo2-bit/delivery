@@ -50,11 +50,8 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     options: { emailRedirectTo: `${origin}/auth/confirmar?proximo=/painel` },
   });
   if (error) {
-    const msg =
-      error.code === "user_already_exists"
-        ? "Já existe uma conta com esse e-mail. Tente entrar."
-        : "Não foi possível criar a conta agora. Tente de novo em instantes.";
-    return { error: msg, email };
+    console.error("Cadastro falhou:", error.code, error.status, error.message);
+    return { error: signUpErrorMessage(error.code), email };
   }
   // Se a confirmação de e-mail estiver desligada no Supabase, a sessão já vem pronta.
   if (data.session) redirect("/painel");
@@ -65,4 +62,26 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/entrar");
+}
+
+/** Traduz os erros do Supabase Auth no cadastro para algo que o dono da loja entenda. */
+function signUpErrorMessage(code: string | undefined): string {
+  switch (code) {
+    case "user_already_exists":
+    case "email_exists":
+      return "Já existe uma conta com esse e-mail. Tente entrar.";
+    case "over_email_send_rate_limit":
+    case "over_request_rate_limit":
+      return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+    case "email_address_not_authorized":
+      return "O envio de e-mails do sistema ainda não está configurado para esse endereço. Fale com o suporte.";
+    case "email_address_invalid":
+      return "Esse e-mail não parece válido. Confira e tente de novo.";
+    case "weak_password":
+      return "Senha fraca. Use pelo menos 8 caracteres, misturando letras e números.";
+    case "signup_disabled":
+      return "Novos cadastros estão desativados no momento.";
+    default:
+      return "Não foi possível criar a conta agora. Tente de novo em instantes.";
+  }
 }
