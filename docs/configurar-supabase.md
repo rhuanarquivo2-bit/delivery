@@ -11,6 +11,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    2. `20261124010000_cardapio_pedidos.sql` (cardápio e pedidos; também liga os pedidos ao vivo)
    3. `20261124020000_promocoes_cupons.sql` (promoções, cupons e importação do cardápio por foto)
    4. `20261124030000_pix_financeiro.sql` (Pix online, contas de recebimento e relatório financeiro)
+   5. `20261124040000_motoboys.sql` (motoboys, entregas, site do motoboy e acerto)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:

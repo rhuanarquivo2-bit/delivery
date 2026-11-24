@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Bell, BellOff, Bike, Clock, MessageCircle, Printer, Store as StoreIcon, X } from "lucide-react";
+import { assignCourier } from "@/app/painel/motoboys/actions";
 import { updateOrderStatus } from "@/app/painel/pedidos/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -31,7 +32,17 @@ function minutesAgo(iso: string, now: number) {
 /** Pix online ainda não pago não aparece para a loja. */
 const isVisible = (o: Order) => o.payment_status !== "awaiting" && o.payment_status !== "expired";
 
-export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initialOrders: Order[] }) {
+type CourierOption = { id: string; name: string; active: boolean };
+
+export function OrdersBoard({
+  storeId,
+  initialOrders,
+  couriers,
+}: {
+  storeId: string;
+  initialOrders: Order[];
+  couriers: CourierOption[];
+}) {
   const [allOrders, setOrders] = useState(initialOrders);
   const orders = useMemo(() => allOrders.filter(isVisible), [allOrders]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -198,7 +209,14 @@ export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initi
                 </p>
               ) : null}
               {list.map((order) => (
-                <OrderCard key={order.id} order={order} now={now} onOpen={() => setSelectedId(order.id)} onChange={upsert} />
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  now={now}
+                  couriers={couriers}
+                  onOpen={() => setSelectedId(order.id)}
+                  onChange={upsert}
+                />
               ))}
             </section>
           );
@@ -206,8 +224,70 @@ export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initi
       </div>
 
       {selected ? (
-        <OrderDialog order={selected} onClose={() => setSelectedId(null)} onChange={upsert} />
+        <OrderDialog order={selected} couriers={couriers} onClose={() => setSelectedId(null)} onChange={upsert} />
       ) : null}
+    </div>
+  );
+}
+
+/** Quem leva o pedido. Só para entrega ainda em andamento. */
+function CourierSelect({
+  order,
+  couriers,
+  onChange,
+  compact,
+}: {
+  order: Order;
+  couriers: CourierOption[];
+  onChange: (o: Order) => void;
+  compact?: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const options = couriers.filter((c) => c.active || c.id === order.courier_id);
+  if (order.fulfillment !== "delivery" || !options.length) return null;
+  const locked = order.status === "delivered" || order.status === "cancelled";
+  if (locked) {
+    const name = couriers.find((c) => c.id === order.courier_id)?.name;
+    return name ? (
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Bike className="size-3.5" /> {name}
+        {order.courier_fee_cents !== null ? ` · taxa ${formatBRL(order.courier_fee_cents)}` : ""}
+      </p>
+    ) : null;
+  }
+  return (
+    <div className="grid gap-1">
+      <label className={cn("flex items-center gap-2", compact ? "text-xs" : "text-sm font-medium")}>
+        <Bike className={cn(compact ? "size-3.5" : "size-4", "shrink-0 text-muted-foreground")} />
+        {compact ? <span className="sr-only">Motoboy</span> : "Motoboy"}
+        <select
+          aria-label={`Motoboy do pedido ${order.number}`}
+          value={order.courier_id ?? ""}
+          disabled={pending}
+          onChange={(e) =>
+            startTransition(async () => {
+              setError(null);
+              const r = await assignCourier(order.id, e.target.value || null);
+              if (r.ok) onChange(r.order);
+              else setError(r.message);
+            })
+          }
+          className={cn(
+            "min-w-0 flex-1 cursor-pointer rounded-lg border bg-card px-2",
+            compact ? "h-8 text-xs" : "h-10 text-sm",
+            order.courier_id ? "border-border" : "border-dashed border-brand/60 text-brand",
+          )}
+        >
+          <option value="">{order.courier_id ? "Tirar motoboy" : "Escolher motoboy"}</option>
+          {options.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -215,11 +295,13 @@ export function OrdersBoard({ storeId, initialOrders }: { storeId: string; initi
 function OrderCard({
   order,
   now,
+  couriers,
   onOpen,
   onChange,
 }: {
   order: Order;
   now: number;
+  couriers: CourierOption[];
   onOpen: () => void;
   onChange: (o: Order) => void;
 }) {
@@ -265,6 +347,7 @@ function OrderCard({
           </span>
         ) : null}
       </button>
+      {order.status !== "pending" ? <CourierSelect order={order} couriers={couriers} onChange={onChange} compact /> : null}
       {next && label ? (
         <Button
           size="sm"
@@ -284,7 +367,17 @@ function OrderCard({
   );
 }
 
-function OrderDialog({ order, onClose, onChange }: { order: Order; onClose: () => void; onChange: (o: Order) => void }) {
+function OrderDialog({
+  order,
+  couriers,
+  onClose,
+  onChange,
+}: {
+  order: Order;
+  couriers: CourierOption[];
+  onClose: () => void;
+  onChange: (o: Order) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
@@ -328,6 +421,8 @@ function OrderDialog({ order, onClose, onChange }: { order: Order; onClose: () =
           {order.address_reference ? <p className="text-muted-foreground">Ref.: {order.address_reference}</p> : null}
           {order.notes ? <p className="mt-1 font-medium">Obs.: {order.notes}</p> : null}
         </section>
+
+        <CourierSelect order={order} couriers={couriers} onChange={onChange} />
 
         <section className="text-sm">
           <OrderItemsList order={order} />
