@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
   // pizzariadojoao.suamarca.com.br/qualquer-coisa -> /loja/pizzariadojoao/qualquer-coisa
   const slug = storeSlugFromHost(request.headers.get("host"));
   let response = NextResponse.next({ request });
-  if (slug && !pathname.startsWith("/loja/")) {
+  if (slug && !pathname.startsWith("/loja/") && !pathname.startsWith("/api/")) {
     const url = request.nextUrl.clone();
     url.pathname = `/loja/${slug}${pathname === "/" ? "" : pathname}`;
     response = NextResponse.rewrite(url, { request });

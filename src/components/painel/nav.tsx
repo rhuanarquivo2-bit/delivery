@@ -23,7 +23,7 @@ const ITEMS: Item[] = [
   { href: "/painel/cardapio", label: "Cardápio", icon: LayoutGrid },
   { href: "/painel/promocoes", label: "Promoções", icon: BadgePercent },
   { href: "/painel/cupons", label: "Cupons", icon: Ticket },
-  { href: "/painel/financeiro", label: "Financeiro", icon: Wallet, soon: true },
+  { href: "/painel/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/painel/motoboys", label: "Motoboys", icon: Bike, soon: true },
   { href: "/painel/loja", label: "Minha loja", icon: Store },
 ];

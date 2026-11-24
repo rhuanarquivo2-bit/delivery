@@ -42,6 +42,7 @@ export default async function PainelHome() {
       .from("orders")
       .select("status, total_cents")
       .eq("store_id", store.id)
+      .in("payment_status", ["on_delivery", "paid"])
       .gte("created_at", startOfTodayISO()),
   ]);
   const valid = (todayOrders ?? []).filter((o) => o.status !== "cancelled");

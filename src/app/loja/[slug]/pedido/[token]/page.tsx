@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CheckCircle2, MessageCircle, XCircle } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Clock, MessageCircle, XCircle } from "lucide-react";
 import { AutoRefresh } from "@/components/loja/auto-refresh";
+import { PixPayment } from "@/components/loja/pix-payment";
 import { customerStatusLabel, customerSteps } from "@/lib/order-status";
 import { changeDue, PAYMENT_LABELS } from "@/lib/pricing";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import type { Fulfillment, OrderItem, OrderStatus, PaymentMethod } from "@/lib/types";
+import type { Fulfillment, OrderItem, OrderStatus, PaymentMethod, PaymentStatus } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 
 export const metadata: Metadata = { title: { absolute: "Acompanhe seu pedido" }, robots: { index: false } };
@@ -25,6 +27,9 @@ type PublicOrder = {
   coupon_code: string | null;
   total_cents: number;
   payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  paid_at: string | null;
+  pix: { qr_code: string; qr_base64: string | null; expires_at: string } | null;
   change_for_cents: number | null;
   created_at: string;
   store: { name: string; slug: string; whatsapp: string | null; primary_color: string; prep_time_minutes: number };
@@ -60,12 +65,14 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   const cancelled = order.status === "cancelled";
   const currentIndex = steps.indexOf(order.status === "ready" && order.fulfillment === "delivery" ? "preparing" : order.status);
   const finished = order.status === "delivered" || cancelled;
+  const awaitingPix = order.payment_status === "awaiting" && order.pix !== null;
+  const pixExpired = order.payment_status === "expired";
   const change = changeDue(order.total_cents, order.change_for_cents);
   const whatsapp = order.store.whatsapp ? `https://wa.me/55${order.store.whatsapp.replace(/^55/, "")}` : null;
 
   return (
     <div className="flex-1" style={{ "--brand": order.store.primary_color } as React.CSSProperties}>
-      {!finished ? <AutoRefresh seconds={15} /> : null}
+      {!finished && !awaitingPix ? <AutoRefresh seconds={15} /> : null}
       <main className="mx-auto grid w-full max-w-xl gap-5 px-4 py-8">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">{order.store.name}</p>
@@ -73,20 +80,42 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
           <p
             className={cn(
               "mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold",
-              cancelled ? "bg-red-50 text-red-700" : "bg-brand/10 text-brand",
+              cancelled ? "bg-red-50 text-red-700" : awaitingPix ? "bg-amber-50 text-amber-800" : "bg-brand/10 text-brand",
             )}
           >
-            {cancelled ? <XCircle className="size-4" /> : <CheckCircle2 className="size-4" />}
-            {customerStatusLabel(order.status, order.fulfillment)}
+            {cancelled ? <XCircle className="size-4" /> : awaitingPix ? <Clock className="size-4" /> : <CheckCircle2 className="size-4" />}
+            {awaitingPix ? "Aguardando pagamento" : customerStatusLabel(order.status, order.fulfillment)}
           </p>
-          {order.status === "pending" ? (
+          {pixExpired ? (
+            <div className="mt-3 grid justify-items-center gap-2 text-sm text-muted-foreground">
+              <p>O prazo para pagar o Pix acabou e o pedido foi cancelado. Nada foi cobrado.</p>
+              <Link href={`/loja/${order.store.slug}`} className="font-semibold text-brand hover:underline">
+                Fazer o pedido de novo
+              </Link>
+            </div>
+          ) : null}
+          {order.payment_status === "paid" && order.status === "pending" ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pagamento confirmado! Assim que a loja aceitar, seu pedido vai para o preparo.
+            </p>
+          ) : order.status === "pending" && !awaitingPix ? (
             <p className="mt-2 text-sm text-muted-foreground">
               Recebemos seu pedido! Assim que a loja aceitar, ele vai para o preparo.
             </p>
           ) : null}
         </div>
 
-        {!cancelled ? (
+        {awaitingPix ? (
+          <PixPayment
+            token={token}
+            qrCode={order.pix!.qr_code}
+            qrBase64={order.pix!.qr_base64}
+            expiresAt={order.pix!.expires_at}
+            totalCents={order.total_cents}
+          />
+        ) : null}
+
+        {!cancelled && !awaitingPix ? (
           <ol className="grid gap-0 rounded-2xl border border-border bg-card p-5">
             {steps.map((step, i) => {
               const done = i <= currentIndex;
@@ -166,6 +195,7 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
           <p>
             <span className="text-muted-foreground">Pagamento: </span>
             {PAYMENT_LABELS[order.payment_method]}
+            {order.payment_status === "paid" ? " · pago" : ""}
             {change !== null ? ` · troco para ${formatBRL(order.change_for_cents!)} (${formatBRL(change)} de troco)` : ""}
           </p>
           <p>
