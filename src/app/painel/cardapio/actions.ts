@@ -283,7 +283,7 @@ const FILE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "appli
 export type ReadMenuResult = { ok: true; draft: MenuDraft } | { ok: false; message: string };
 
 export async function readMenuPhotos(formData: FormData): Promise<ReadMenuResult> {
-  await requireMyStore();
+  const { store } = await requireMyStore();
   if (!isMenuReaderConfigured()) {
     return { ok: false, message: "A leitura por foto ainda não foi ativada. Falta configurar a chave da IA (ANTHROPIC_API_KEY)." };
   }
@@ -297,6 +297,14 @@ export async function readMenuPhotos(formData: FormData): Promise<ReadMenuResult
     if (!type) return { ok: false, message: "Use fotos JPG, PNG ou WEBP, ou um PDF." };
     if (file.size > MAX_FILE_BYTES) return { ok: false, message: "Cada arquivo pode ter no máximo 5 MB." };
     payload.push({ mediaType: type, data: Buffer.from(await file.arrayBuffer()).toString("base64") });
+  }
+
+  if (store.is_demo) {
+    const supabase = await createClient();
+    const { data: allowed } = await supabase.rpc("consume_demo_ai_read", { p_store_id: store.id });
+    if (!allowed) {
+      return { ok: false, message: "A demonstração permite 3 leituras por foto. Crie sua loja para usar à vontade." };
+    }
   }
 
   try {

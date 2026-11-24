@@ -17,7 +17,9 @@ export type Store = {
   prep_time_minutes: number;
   is_demo: boolean;
   /** Pix online: conta conectada no painel (null = loja não recebe Pix online). */
-  pix_provider: "mercadopago" | "asaas" | null;
+  pix_provider: "mercadopago" | "asaas" | "demo" | null;
+  /** Leituras de cardápio por foto já usadas (só conta em loja de demonstração). */
+  demo_ai_reads: number;
   created_at: string;
   updated_at: string;
 };

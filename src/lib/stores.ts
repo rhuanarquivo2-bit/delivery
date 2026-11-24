@@ -9,7 +9,12 @@ export const requireUser = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) redirect("/entrar");
-  return { id: data.claims.sub as string, email: (data.claims.email as string | undefined) ?? "" };
+  return {
+    id: data.claims.sub as string,
+    email: (data.claims.email as string | undefined) ?? "",
+    /** Visitante da demonstração (login anônimo, sem e-mail). */
+    isAnonymous: data.claims.is_anonymous === true,
+  };
 });
 
 /** Loja do usuário logado (a primeira, por enquanto cada conta administra uma loja). */

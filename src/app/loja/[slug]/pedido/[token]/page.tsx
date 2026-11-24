@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Clock, MessageCircle, XCircle } from "lucide-react";
 import { AutoRefresh } from "@/components/loja/auto-refresh";
+import { DemoStoreBanner } from "@/components/loja/demo-banner";
 import { PixPayment } from "@/components/loja/pix-payment";
+import { getPublicStore } from "@/lib/stores";
 import { customerStatusLabel, customerSteps } from "@/lib/order-status";
 import { changeDue, PAYMENT_LABELS } from "@/lib/pricing";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -60,6 +62,7 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   const { data } = await supabase.rpc("get_public_order", { p_token: token });
   const order = data as PublicOrder | null;
   if (!order || order.store.slug !== slug) notFound();
+  const isDemo = (await getPublicStore(slug))?.store.is_demo ?? false;
 
   const steps = customerSteps(order.fulfillment);
   const cancelled = order.status === "cancelled";
@@ -72,6 +75,7 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
 
   return (
     <div className="flex-1" style={{ "--brand": order.store.primary_color } as React.CSSProperties}>
+      {isDemo ? <DemoStoreBanner /> : null}
       {!finished && !awaitingPix ? <AutoRefresh seconds={15} /> : null}
       <main className="mx-auto grid w-full max-w-xl gap-5 px-4 py-8">
         <div className="text-center">
@@ -112,6 +116,7 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
             qrBase64={order.pix!.qr_base64}
             expiresAt={order.pix!.expires_at}
             totalCents={order.total_cents}
+            demo={isDemo}
           />
         ) : null}
 

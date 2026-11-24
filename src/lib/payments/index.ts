@@ -3,13 +3,14 @@ import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PaymentStatus } from "@/lib/types";
 import { asaas } from "./asaas";
+import { demoGateway } from "./demo";
 import { mercadoPago } from "./mercadopago";
 import { PaymentError, type PixCustomer, type PixGateway, type PixProvider } from "./types";
 
 /** Tempo que o cliente tem para pagar o Pix antes de o pedido ser cancelado. */
 export const PIX_MINUTES = 30;
 
-export const gateways: Record<PixProvider, PixGateway> = { mercadopago: mercadoPago, asaas };
+export const gateways: Record<PixProvider, PixGateway> = { mercadopago: mercadoPago, asaas, demo: demoGateway };
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Account = { provider: PixProvider; access_token: string; webhook_token: string | null };
