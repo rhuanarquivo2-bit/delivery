@@ -24,3 +24,13 @@ select save_category(:'sid', '{"name":"Bebidas","has_sizes":false,"sizes":[],"gr
 select save_product(:'sid', jsonb_build_object('category_id', :'bebidas', 'name', 'Coca-Cola 2L', 'price_cents', 1490));
 select save_product(:'sid', jsonb_build_object('category_id', :'bebidas', 'name', 'Guaraná Antarctica lata', 'price_cents', 650));
 select save_product(:'sid', jsonb_build_object('category_id', :'bebidas', 'name', 'Suco natural de laranja 500ml', 'price_cents', 1200, 'active', false));
+
+-- Fase 3: promoções e cupons de exemplo
+insert into promotions (store_id, name, kind, value, product_id)
+  select :'sid', 'Calabresa da semana', 'percent', 20, id from products where store_id = :'sid' and name = 'Calabresa';
+insert into promotions (store_id, name, kind, value, category_id, weekdays, start_time, end_time)
+  values (:'sid', 'Happy hour do burger', 'fixed', 500, :'lanches', array[2,3,4]::smallint[], '18:00', '20:00');
+insert into coupons (store_id, code, description, kind, value, first_order_only)
+  values (:'sid', 'BEMVINDO', '10% no seu primeiro pedido', 'percent', 10, true);
+insert into coupons (store_id, code, description, kind, min_order_cents)
+  values (:'sid', 'FRETEGRATIS', 'Entrega grátis acima de R$ 60', 'free_delivery', 6000);

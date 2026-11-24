@@ -68,12 +68,32 @@ loja só consegue mudar o status do pedido, nunca os valores.
 Pizza com mais de um sabor: cada tamanho define quantos sabores aceita, e a categoria define
 se o preço é o do sabor mais caro ou a média.
 
+## Promoções e cupons
+
+- **Promoções** (`promotions`): desconto em % ou em R$ num produto ou numa categoria inteira,
+  com dias da semana, faixa de horário e período opcionais (horário de Brasília). O site mostra
+  o preço antigo riscado; em pizza meio a meio, cada sabor entra com o preço da sua promoção.
+- **Cupons** (`coupons`): % (com teto opcional), valor fixo ou entrega grátis; pedido mínimo,
+  limite total, limite por cliente (pelo celular), só primeiro pedido e validade. Os códigos
+  não são públicos: o cliente só testa um código pelo checkout (`quote_order`).
+- Tudo é recalculado em `price_order`, usado tanto pela prévia do checkout quanto pelo
+  `place_order`. Pedido cancelado devolve o uso do cupom.
+
+## Cardápio por foto
+
+`/painel/cardapio/importar`: o operador envia até 4 fotos (ou um PDF), cada uma é lida em
+paralelo pelo Claude (`src/lib/menu-reader.ts`, saída estruturada validada com zod) e o
+resultado aparece numa tela de revisão ao lado da foto. Itens sem preço ou difíceis de ler
+ficam destacados. Só depois da revisão a função `import_menu` grava tudo de uma vez. Precisa
+de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
+
 ## Fases
 
 1. **Fundação**: login, cadastro da loja, horários, bairros e taxas, site base.
 2. **Cardápio e pedidos**: cardápio com tamanhos, sabores e adicionais; carrinho e checkout com
    pagamento na entrega; pedidos ao vivo no painel; comprovante; acompanhamento do cliente.
-3. Cardápio por foto com IA, promoções e cupons.
+3. **IA e promoções**: cardápio por foto com tela de revisão; promoções programadas;
+   cupons de desconto no checkout.
 4. Pix online e financeiro.
 5. Motoboys.
 6. Modo demonstração e página de vendas.

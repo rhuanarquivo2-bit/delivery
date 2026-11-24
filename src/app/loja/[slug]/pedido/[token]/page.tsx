@@ -22,6 +22,7 @@ type PublicOrder = {
   subtotal_cents: number;
   delivery_fee_cents: number;
   discount_cents: number;
+  coupon_code: string | null;
   total_cents: number;
   payment_method: PaymentMethod;
   change_for_cents: number | null;
@@ -146,6 +147,12 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Entrega</dt>
                 <dd>{order.delivery_fee_cents ? formatBRL(order.delivery_fee_cents) : "Grátis"}</dd>
+              </div>
+            ) : null}
+            {order.discount_cents ? (
+              <div className="flex justify-between text-emerald-700">
+                <dt>{order.coupon_code ? `Cupom ${order.coupon_code}` : "Desconto"}</dt>
+                <dd>- {formatBRL(order.discount_cents)}</dd>
               </div>
             ) : null}
             <div className="flex justify-between text-base font-bold">

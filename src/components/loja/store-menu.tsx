@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Search, ShoppingBag } from "lucide-react";
+import { Search, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/lib/cart";
-import { startingPrice } from "@/lib/pricing";
+import { activePromoName, startingPrice } from "@/lib/pricing";
 import type { Category, Product } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 import { ProductDialog } from "./product-dialog";
@@ -86,6 +86,8 @@ export function StoreMenu({
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {category.products.map((product) => {
                 const from = startingPrice(category, product);
+                const full = startingPrice(category, product, { withPromos: false });
+                const promo = activePromoName(category, product);
                 return (
                   <button
                     key={product.id}
@@ -93,6 +95,11 @@ export function StoreMenu({
                     className="flex cursor-pointer gap-3 rounded-2xl border border-border bg-card p-3 text-left transition hover:border-brand/40 hover:shadow-sm"
                   >
                     <div className="min-w-0 flex-1 py-1">
+                      {promo ? (
+                        <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          <Tag className="size-3" /> {promo}
+                        </span>
+                      ) : null}
                       <p className="font-semibold">{product.name}</p>
                       {product.description ? (
                         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
@@ -102,7 +109,10 @@ export function StoreMenu({
                           {category.has_sizes && product.prices.length > 1 ? (
                             <span className="font-normal text-muted-foreground">a partir de </span>
                           ) : null}
-                          {formatBRL(from)}
+                          {full !== null && full > from ? (
+                            <span className="mr-1.5 font-normal text-muted-foreground line-through">{formatBRL(full)}</span>
+                          ) : null}
+                          <span className={full !== null && full > from ? "text-emerald-700" : undefined}>{formatBRL(from)}</span>
                         </p>
                       ) : null}
                     </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BadgePercent,
   Bike,
   ClipboardList,
   Home,
@@ -20,7 +21,8 @@ const ITEMS: Item[] = [
   { href: "/painel", label: "Início", icon: Home },
   { href: "/painel/pedidos", label: "Pedidos", icon: ClipboardList },
   { href: "/painel/cardapio", label: "Cardápio", icon: LayoutGrid },
-  { href: "/painel/cupons", label: "Cupons", icon: Ticket, soon: true },
+  { href: "/painel/promocoes", label: "Promoções", icon: BadgePercent },
+  { href: "/painel/cupons", label: "Cupons", icon: Ticket },
   { href: "/painel/financeiro", label: "Financeiro", icon: Wallet, soon: true },
   { href: "/painel/motoboys", label: "Motoboys", icon: Bike, soon: true },
   { href: "/painel/loja", label: "Minha loja", icon: Store },

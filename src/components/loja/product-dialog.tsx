@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/input";
 import type { CartLine } from "@/lib/cart";
-import { optionErrors, priceForSize, unitPrice, type CartSelection } from "@/lib/pricing";
+import { activePromoName, optionErrors, priceForSize, unitPrice, type CartSelection } from "@/lib/pricing";
+import { promoPrice } from "@/lib/promotions";
 import type { Category, Product } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 
@@ -48,6 +49,12 @@ export function ProductDialog({
 
   const selection: CartSelection = { productId: product.id, sizeId, flavorIds: validFlavors, optionIds, quantity, notes };
   const unit = unitPrice(category, selection);
+  const fullUnit = unitPrice(category, selection, { withPromos: false });
+  const promo = activePromoName(category, product);
+  const sizePrice = (p: Product, id: string) => {
+    const raw = priceForSize(p, id);
+    return raw === null ? null : promoPrice(raw, p.promos).price;
+  };
   const errors = useMemo(() => optionErrors(category, optionIds), [category, optionIds]);
   const hasErrors = Object.keys(errors).length > 0 || unit === null;
 
@@ -94,6 +101,11 @@ export function ProductDialog({
         ) : null}
         <div className="grid grid-cols-1 gap-6 p-5 pb-6">
           <div className={cn(!product.image_url && "pr-10")}>
+            {promo ? (
+              <span className="mb-1.5 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                {promo}
+              </span>
+            ) : null}
             <h2 className="text-xl font-bold">{product.name}</h2>
             {product.description ? <p className="mt-1 text-sm text-muted-foreground">{product.description}</p> : null}
           </div>
@@ -108,7 +120,7 @@ export function ProductDialog({
                   onChange={() => setSizeId(s.id)}
                   label={s.name}
                   hint={s.max_flavors > 1 ? `até ${s.max_flavors} sabores` : undefined}
-                  price={priceForSize(product, s.id)}
+                  price={sizePrice(product, s.id)}
                 />
               ))}
             </Section>
@@ -134,7 +146,7 @@ export function ProductDialog({
                   }
                   label={p.name}
                   hint={p.description ?? undefined}
-                  price={size ? priceForSize(p, size.id) : null}
+                  price={size ? sizePrice(p, size.id) : null}
                 />
               ))}
             </Section>
@@ -204,7 +216,12 @@ export function ProductDialog({
         </div>
         <Button size="lg" className="flex-1 justify-between" onClick={add} disabled={!canOrder}>
           <span>{canOrder ? "Adicionar" : "Loja fechada"}</span>
-          <span>{unit !== null ? formatBRL(unit * quantity) : ""}</span>
+          <span>
+            {unit !== null && fullUnit !== null && fullUnit > unit ? (
+              <span className="mr-1.5 text-xs font-normal line-through opacity-70">{formatBRL(fullUnit * quantity)}</span>
+            ) : null}
+            {unit !== null ? formatBRL(unit * quantity) : ""}
+          </span>
         </Button>
       </div>
     </Dialog>

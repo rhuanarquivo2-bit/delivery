@@ -9,6 +9,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    arquivo da pasta `supabase/migrations/`:
    1. `20261124000000_fundacao.sql` (lojas, horários, bairros, imagens)
    2. `20261124010000_cardapio_pedidos.sql` (cardápio e pedidos; também liga os pedidos ao vivo)
+   3. `20261124020000_promocoes_cupons.sql` (promoções, cupons e importação do cardápio por foto)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:
@@ -21,3 +22,13 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
 
 Para testar sem confirmar e-mail, desligue **Authentication > Sign In / Providers > Email > Confirm email**.
 Ligue de novo antes de colocar no ar.
+
+## Leitura do cardápio por foto (opcional)
+
+1. Crie uma conta em https://console.anthropic.com e adicione crédito em **Billing**
+   (cada leitura de foto custa poucos centavos de dólar).
+2. Em **API Keys**, clique em **Create Key** e copie a chave.
+3. Coloque em `ANTHROPIC_API_KEY` no `.env.local` e, no deploy, em
+   **Vercel > Project > Settings > Environment Variables**. Não compartilhe a chave com ninguém.
+
+Sem a chave, a tela "Importar por foto" avisa que a leitura ainda não está ativa.
