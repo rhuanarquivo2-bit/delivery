@@ -14,6 +14,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    5. `20261124040000_motoboys.sql` (motoboys, entregas, site do motoboy e acerto)
    6. `20261124050000_demonstracao.sql` (modo demonstração)
    7. `20261124060000_melhorias.sql` (pedido agendado, CEP, clientes, desempenho, via da cozinha, Pixel e Analytics)
+   8. Os seguintes, em ordem, até `20261124120000_acesso_lojas.sql` (prazo de teste, validade e bloqueio das lojas)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:
@@ -67,6 +68,20 @@ cliente recebe aviso a cada mudança do pedido. Cada um liga no próprio aparelh
 No Android e no computador funciona direto no navegador. No iPhone (iOS 16.4 ou mais novo)
 só funciona com o site adicionado à tela de início (Compartilhar > Adicionar à Tela de Início);
 o botão explica isso para quem abrir pelo Safari.
+
+## Administração da plataforma (prazo e bloqueio das lojas)
+
+Depois de rodar `20261124120000_acesso_lojas.sql`, diga quem é o administrador (troque o e-mail):
+
+```sql
+insert into public.platform_admins (user_id)
+select id from auth.users where email = 'seu-email@exemplo.com';
+```
+
+Entre no painel com esse e-mail e abra `/admin` (ou o link **Administração** no menu).
+Lá aparecem todas as lojas (menos as de demonstração): dá para somar dias, escolher a data de
+validade, liberar sem prazo, bloquear/desbloquear e anotar. Loja nova ganha os dias de teste
+configurados (padrão 7). Loja vencida ou bloqueada não recebe pedidos e o lojista vê o aviso.
 
 ## Modo demonstração
 

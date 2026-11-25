@@ -47,6 +47,7 @@ const ERRORS: Record<string, string> = {
   agendamento_fora_horario: "A loja não funciona nesse horário. Escolha outro.",
   recompensa_invalida: "Essa recompensa não está mais disponível. Escolha outra.",
   pontos_insuficientes: "Você não tem pontos suficientes para essa recompensa.",
+  loja_indisponivel: "Esta loja não está recebendo pedidos online no momento.",
   pontos_sem_acesso: "Para usar seus pontos, entre em Meus pedidos com seu celular e senha.",
 };
 

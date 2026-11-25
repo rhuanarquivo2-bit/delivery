@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
 
   const session = await updateSession(request, response);
 
-  if ((pathname.startsWith("/painel") || pathname.startsWith("/imprimir")) && !session.userId) {
+  if ((pathname.startsWith("/painel") || pathname.startsWith("/imprimir") || pathname.startsWith("/admin")) && !session.userId) {
     const url = request.nextUrl.clone();
     url.pathname = "/entrar";
     url.search = `?voltar=${encodeURIComponent(pathname + search)}`;

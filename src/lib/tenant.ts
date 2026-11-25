@@ -1,7 +1,7 @@
 import { SLUG_PATTERN } from "./utils";
 
 /** Subdomínios que pertencem à plataforma e nunca são lojas. */
-const RESERVED = new Set(["www", "app", "painel", "api", "demo", "entregador"]);
+const RESERVED = new Set(["www", "app", "painel", "api", "demo", "entregador", "admin"]);
 
 /**
  * Descobre a loja pelo subdomínio.

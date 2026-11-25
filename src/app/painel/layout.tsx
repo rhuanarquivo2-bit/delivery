@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { fixedIcon } from "@/lib/push/app-icon";
 import { Alert } from "@/components/ui/alert";
+import { AccessEndingBar, AccessSuspended } from "@/components/painel/access-notice";
 import { DemoBar } from "@/components/painel/demo-bar";
 import { PainelShell } from "@/components/painel/shell";
 import { createClient } from "@/lib/supabase/server";
 import { storeUrl } from "@/lib/tenant";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { getMyStore, requireUser } from "@/lib/stores";
+import { storeAccess, WARN_DAYS } from "@/lib/access";
+import { getPlatformSettings, isPlatformAdmin } from "@/lib/platform";
 
 export const metadata: Metadata = {
   title: "Painel",
@@ -27,7 +30,8 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
     );
   }
   const user = await requireUser();
-  const mine = await getMyStore();
+  const [mine, isAdmin] = await Promise.all([getMyStore(), isPlatformAdmin()]);
+  const access = mine ? storeAccess(mine.store) : null;
 
   let demoBar: React.ReactNode = null;
   if (mine?.store.is_demo) {
@@ -48,14 +52,30 @@ export default async function PainelLayout({ children }: LayoutProps<"/painel">)
     );
   }
 
+  let content = children;
+  let topBar = demoBar;
+  if (mine && access && (access.kind === "expired" || access.kind === "blocked" || (access.kind === "active" && access.daysLeft <= WARN_DAYS))) {
+    const { support_whatsapp } = await getPlatformSettings();
+    if (access.kind === "active") {
+      topBar = (
+        <AccessEndingBar until={access.until} daysLeft={access.daysLeft} supportWhatsapp={support_whatsapp} storeName={mine.store.name} />
+      );
+    } else if (!isAdmin) {
+      // o administrador da plataforma continua entrando no próprio painel
+      content = <AccessSuspended access={access} storeName={mine.store.name} supportWhatsapp={support_whatsapp} />;
+    }
+  }
+
   return (
     <PainelShell
       storeName={mine?.store.name ?? null}
       email={mine?.store.is_demo ? "Visitante da demonstração" : user.email}
       brandColor={mine?.store.primary_color}
-      topBar={demoBar}
+      topBar={topBar}
+      showAdminLink={isAdmin}
+      locked={content !== children}
     >
-      {children}
+      {content}
     </PainelShell>
   );
 }

@@ -5,6 +5,8 @@ import { Bike, Clock, MapPin, MessageCircle, UtensilsCrossed } from "lucide-reac
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
 import { ActiveOrderBanner, MyOrdersLink } from "@/components/loja/my-orders-shortcut";
 import { StoreMenu } from "@/components/loja/store-menu";
+import { StoreUnavailable } from "@/components/loja/store-unavailable";
+import { hasAccess, storeAccess } from "@/lib/access";
 import { getBestSellers, getMenu } from "@/lib/menu";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { isOpenNow, shortTime, WEEKDAYS } from "@/lib/hours";
@@ -30,6 +32,8 @@ export default async function LojaPage({ params }: PageProps<"/loja/[slug]">) {
   if (!data) notFound();
 
   const { store, hours, zones } = data;
+  // acesso ao sistema vencido ou bloqueado pelo administrador da plataforma
+  if (!hasAccess(storeAccess(store))) return <StoreUnavailable store={store} />;
   const [menu, bestSellers] = await Promise.all([getMenu(store.id, { publicOnly: true }), getBestSellers(store.id)]);
   const open = isOpenNow(hours, store.open_override);
   const nextSlot = store.accepts_scheduled
