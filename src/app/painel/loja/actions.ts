@@ -136,6 +136,7 @@ const optionalId = z
   .transform((v) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null));
 
 const siteSchema = z.object({
+  pix_whatsapp_enabled: checkbox,
   accepts_scheduled: checkbox,
   schedule_days_ahead: z.coerce.number().int().min(0, "De 0 a 7 dias.").max(7, "De 0 a 7 dias."),
   show_promo_popup: checkbox,

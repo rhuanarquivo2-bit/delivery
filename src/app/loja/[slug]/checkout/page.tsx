@@ -33,6 +33,7 @@ export default async function CheckoutPage({ params }: PageProps<"/loja/[slug]/c
           prep_time_minutes: store.prep_time_minutes,
           // Pix online precisa da chave secreta no servidor para gerar a cobrança
           pix_provider: isAdminConfigured ? (store.pix_provider ?? null) : null,
+          pix_whatsapp: Boolean(store.pix_whatsapp_enabled && store.whatsapp?.trim()),
           open_override: store.open_override,
           accepts_scheduled: store.accepts_scheduled,
           schedule_days_ahead: store.schedule_days_ahead,

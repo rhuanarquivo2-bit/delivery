@@ -18,6 +18,8 @@ export type Store = {
   is_demo: boolean;
   /** Pix online: conta conectada no painel (null = loja não recebe Pix online). */
   pix_provider: "mercadopago" | "asaas" | "demo" | null;
+  /** Pix pelo WhatsApp: o cliente pede a chave Pix no WhatsApp da loja (sem integração com banco). */
+  pix_whatsapp_enabled: boolean;
   /** Leituras de cardápio por foto já usadas (só conta em loja de demonstração). */
   demo_ai_reads: number;
   /** Pedido agendado: o cliente escolhe dia e horário, até `schedule_days_ahead` dias à frente. */
@@ -133,7 +135,7 @@ export type Category = {
 // ---------------------------------------------------------------------------
 export type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
 export type Fulfillment = "delivery" | "pickup";
-export type PaymentMethod = "pix_online" | "pix_delivery" | "card_delivery" | "cash";
+export type PaymentMethod = "pix_online" | "pix_whatsapp" | "pix_delivery" | "card_delivery" | "cash";
 /** on_delivery = paga na entrega; awaiting/expired = Pix online ainda não pago (não entra no painel). */
 export type PaymentStatus = "on_delivery" | "awaiting" | "paid" | "expired";
 

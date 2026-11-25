@@ -14,9 +14,10 @@ import { cn, formatBRL } from "@/lib/utils";
 
 export const metadata = { title: "Financeiro" };
 
-const METHOD_ORDER = ["pix_online", "pix_delivery", "card_delivery", "cash"] as const;
+const METHOD_ORDER = ["pix_online", "pix_whatsapp", "pix_delivery", "card_delivery", "cash"] as const;
 const METHOD_LABELS: Record<(typeof METHOD_ORDER)[number], string> = {
   pix_online: "Pix online",
+  pix_whatsapp: "Pix pelo WhatsApp",
   pix_delivery: "Pix na entrega",
   card_delivery: "Cartão na entrega",
   cash: "Dinheiro",
@@ -42,7 +43,11 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
     : `${formatDay(period.from, true)} a ${formatDay(period.to, true)}`;
   const exportHref = `/painel/financeiro/exportar?de=${period.from}&ate=${period.to}`;
 
-  const methods: MethodRow[] = METHOD_ORDER.filter((m) => m !== "pix_online" || store.pix_provider || report?.by_method.pix_online).map(
+  const methods: MethodRow[] = METHOD_ORDER.filter(
+    (m) =>
+      (m !== "pix_online" || store.pix_provider || report?.by_method.pix_online) &&
+      (m !== "pix_whatsapp" || store.pix_whatsapp_enabled || report?.by_method.pix_whatsapp),
+  ).map(
     (m) => ({
       key: m,
       label: METHOD_LABELS[m] ?? PAYMENT_LABELS[m],
@@ -50,7 +55,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
       cents: report?.by_method[m]?.cents ?? 0,
     }),
   );
-  const pixTotal = (report?.by_method.pix_online?.cents ?? 0) + (report?.by_method.pix_delivery?.cents ?? 0);
+  const pixTotal =
+    (report?.by_method.pix_online?.cents ?? 0) +
+    (report?.by_method.pix_whatsapp?.cents ?? 0) +
+    (report?.by_method.pix_delivery?.cents ?? 0);
 
   return (
     <div className="grid gap-6">
@@ -122,7 +130,7 @@ export default async function FinanceiroPage({ searchParams }: PageProps<"/paine
               hint="Valor médio por pedido"
               big
             />
-            <Stat label="Recebido em Pix" value={formatBRL(pixTotal)} hint="Online e na entrega" big />
+            <Stat label="Recebido em Pix" value={formatBRL(pixTotal)} hint="Online, pelo WhatsApp e na entrega" big />
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Produtos" value={formatBRL(report.subtotal_cents)} hint="Soma dos itens, sem taxa" />

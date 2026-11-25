@@ -18,6 +18,12 @@ export function collectInstruction(o: Pick<CourierOrder, "payment_method" | "pay
       }
       return { title: `Cobrar ${total} em dinheiro`, detail: "Sem troco.", tone: "cash" as const };
     }
+    case "pix_whatsapp":
+      return {
+        title: `Pix de ${total} a confirmar`,
+        detail: "O cliente paga o Pix pelo WhatsApp da loja. Confirme com a loja se já foi pago; se não, cobre o Pix na entrega.",
+        tone: "pix" as const,
+      };
     case "card_delivery":
       return { title: `Cobrar ${total} no cartão`, detail: "Levar a maquininha.", tone: "card" as const };
     default:

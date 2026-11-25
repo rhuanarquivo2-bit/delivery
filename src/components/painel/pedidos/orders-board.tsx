@@ -1,9 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Bell, BellOff, Bike, CalendarClock, Clock, MessageCircle, Printer, Store as StoreIcon, X } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  Bike,
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  MessageCircle,
+  Printer,
+  Store as StoreIcon,
+  X,
+} from "lucide-react";
 import { assignCourier } from "@/app/painel/motoboys/actions";
-import { updateOrderStatus } from "@/app/painel/pedidos/actions";
+import { setWhatsappPixPaid, updateOrderStatus } from "@/app/painel/pedidos/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -44,6 +55,18 @@ function ScheduledBadge({ order, large }: { order: Order; large?: boolean }) {
       Agendado: {formatScheduled(order.scheduled_for)}
     </span>
   );
+}
+
+/** Etiqueta do pagamento no cartão do pedido. */
+function paymentBadge(order: Order) {
+  if (order.payment_method === "pix_whatsapp") {
+    return order.payment_status === "paid"
+      ? { text: "Pix pago", tone: "bg-emerald-100 text-emerald-800" }
+      : { text: "Pix a confirmar", tone: "bg-amber-100 text-amber-900" };
+  }
+  return order.payment_status === "paid"
+    ? { text: "Pago online", tone: "bg-emerald-100 text-emerald-800" }
+    : { text: PAYMENT_LABELS[order.payment_method], tone: "bg-muted" };
 }
 
 /** Pix online ainda não pago não aparece para a loja. */
@@ -349,13 +372,8 @@ function OrderCard({
           {order.fulfillment === "delivery" ? order.address_district : "Retirada"}
         </p>
         <div className="mt-1 flex items-center justify-between text-sm">
-          <span
-            className={cn(
-              "rounded-md px-1.5 py-0.5 text-xs font-medium",
-              order.payment_status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-muted",
-            )}
-          >
-            {order.payment_status === "paid" ? "Pago online" : PAYMENT_LABELS[order.payment_method]}
+          <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-medium", paymentBadge(order).tone)}>
+            {paymentBadge(order).text}
           </span>
           <span className="font-semibold">{formatBRL(order.total_cents)}</span>
         </div>
@@ -382,6 +400,52 @@ function OrderCard({
         </Button>
       ) : null}
     </article>
+  );
+}
+
+/** Pix pelo WhatsApp: o lojista confere o comprovante e marca o pedido como pago. */
+function WhatsappPixControl({ order, onChange }: { order: Order; onChange: (o: Order) => void }) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const paid = order.payment_status === "paid";
+  const toggle = () =>
+    startTransition(async () => {
+      setError(null);
+      const result = await setWhatsappPixPaid({ orderId: order.id, paid: !paid });
+      if (result.ok) onChange(result.order as Order);
+      else setError(result.message);
+    });
+
+  return (
+    <section
+      className={cn(
+        "grid gap-2 rounded-xl p-4 text-sm",
+        paid ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900",
+      )}
+    >
+      {paid ? (
+        <p className="flex items-center gap-2 font-semibold">
+          <CheckCircle2 className="size-4" /> Pix confirmado. Não cobrar na entrega.
+        </p>
+      ) : (
+        <p>
+          <strong>Pix a confirmar.</strong> O cliente pediu a chave Pix pelo WhatsApp. Confira o comprovante e marque como
+          pago.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {paid ? (
+          <Button size="sm" variant="ghost" disabled={pending} onClick={toggle}>
+            {pending ? "..." : "Desfazer: ainda não pago"}
+          </Button>
+        ) : (
+          <Button size="sm" disabled={pending} onClick={toggle}>
+            <CheckCircle2 /> {pending ? "..." : "Marcar Pix como pago"}
+          </Button>
+        )}
+      </div>
+      {error ? <p className="text-red-700">{error}</p> : null}
+    </section>
   );
 }
 
@@ -453,6 +517,10 @@ function OrderDialog({
         <section className="border-t border-border pt-3 text-sm">
           <OrderTotals order={order} />
         </section>
+
+        {order.payment_method === "pix_whatsapp" && order.status !== "cancelled" ? (
+          <WhatsappPixControl order={order} onChange={onChange} />
+        ) : null}
 
         {order.status === "cancelled" && order.cancel_reason ? (
           <p className="text-sm text-red-700">Motivo do cancelamento: {order.cancel_reason}</p>

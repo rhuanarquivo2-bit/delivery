@@ -36,6 +36,8 @@ function paymentLine(o: { payment_method: PaymentMethod; payment_status: Payment
       return o.change_for_cents && o.change_for_cents > o.total_cents
         ? `💵 Dinheiro · troco para ${formatBRL(o.change_for_cents)}`
         : "💵 Dinheiro · sem troco";
+    case "pix_whatsapp":
+      return "📲 Pix pelo WhatsApp · confira o comprovante";
     case "card_delivery":
       return "💳 Cartão na entrega";
     default:
@@ -198,6 +200,8 @@ function payOnArrival(o: { payment_method: PaymentMethod; payment_status: Paymen
       return o.change_for_cents && o.change_for_cents > o.total_cents
         ? `💵 Total ${total}. O troco para ${formatBRL(o.change_for_cents)} já vai junto.`
         : `💵 Tenha ${total} em dinheiro.`;
+    case "pix_whatsapp":
+      return `📲 Pix de ${total}: se ainda não pagou, peça a chave Pix no WhatsApp da loja.`;
     case "card_delivery":
       return `💳 Pagamento no cartão: ${total}.`;
     default:
