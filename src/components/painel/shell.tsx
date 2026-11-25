@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, Menu, X } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { signOut } from "@/app/entrar/actions";
 import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/lib/brand";
@@ -12,6 +13,8 @@ export function PainelShell({
   email,
   brandColor,
   topBar,
+  showAdminLink,
+  locked,
   children,
 }: {
   storeName: string | null;
@@ -19,6 +22,10 @@ export function PainelShell({
   brandColor?: string;
   /** Faixa acima do conteúdo (ex.: barra do modo demonstração). */
   topBar?: React.ReactNode;
+  /** Link para a área do administrador da plataforma. */
+  showAdminLink?: boolean;
+  /** Acesso vencido/bloqueado: esconde o menu. */
+  locked?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -29,8 +36,16 @@ export function PainelShell({
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{APP_NAME}</p>
         <p className="truncate text-lg font-bold">{storeName ?? "Nova loja"}</p>
       </div>
-      {storeName ? <PainelNav onNavigate={() => setOpen(false)} /> : null}
+      {storeName && !locked ? <PainelNav onNavigate={() => setOpen(false)} /> : null}
       <div className="mt-auto grid gap-2 border-t border-border pt-4">
+        {showAdminLink ? (
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground/80 hover:bg-muted"
+          >
+            <ShieldCheck className="size-4" /> Administração
+          </Link>
+        ) : null}
         <p className="truncate px-2 text-xs text-muted-foreground">{email}</p>
         <form action={signOut}>
           <Button variant="ghost" size="sm" className="w-full justify-start">

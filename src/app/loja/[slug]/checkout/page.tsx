@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { hasAccess, storeAccess } from "@/lib/access";
+import { storeUrl } from "@/lib/tenant";
 import { CheckoutForm } from "@/components/loja/checkout-form";
 import { isOpenNow } from "@/lib/hours";
 import { getMenu } from "@/lib/menu";
@@ -16,6 +18,7 @@ export default async function CheckoutPage({ params }: PageProps<"/loja/[slug]/c
   const data = await getPublicStore(slug);
   if (!data) notFound();
   const { store, hours, zones } = data;
+  if (!hasAccess(storeAccess(store))) redirect(storeUrl(store.slug));
   const menu = await getMenu(store.id, { publicOnly: true });
 
   return (

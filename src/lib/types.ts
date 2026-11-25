@@ -38,6 +38,11 @@ export type Store = {
   loyalty_cents_per_point: number;
   loyalty_welcome_points: number;
   loyalty_expiry_days: number;
+  /** Até quando a loja pode usar o sistema (null = sem prazo). Só o administrador muda. */
+  access_until: string | null;
+  /** Bloqueada pelo administrador da plataforma. */
+  blocked: boolean;
+  blocked_reason: string | null;
   created_at: string;
   updated_at: string;
 };
