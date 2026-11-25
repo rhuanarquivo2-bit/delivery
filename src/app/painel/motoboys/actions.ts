@@ -7,6 +7,7 @@ import { requireMyStore } from "@/lib/stores";
 import { createClient } from "@/lib/supabase/server";
 import type { CourierDay, Order } from "@/lib/types";
 import { parseBRLToCents } from "@/lib/utils";
+import { later, notifyCourier } from "@/lib/push/notify";
 
 export type FormState = { message?: string };
 
@@ -111,6 +112,7 @@ export async function assignCourier(orderId: string, courierId: string | null) {
   const { data, error } = await supabase.rpc("assign_courier", { p_order_id: orderId, p_courier_id: courierId });
   if (error) return { ok: false as const, message: ASSIGN_ERRORS[error.message] ?? "Não foi possível escolher o motoboy." };
   revalidatePath("/painel/pedidos");
+  if (courierId) later(() => notifyCourier(orderId));
   return { ok: true as const, order: data as Order };
 }
 

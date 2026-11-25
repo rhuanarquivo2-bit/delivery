@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireMyStore } from "@/lib/stores";
 import { createClient } from "@/lib/supabase/server";
+import { later, notifyOrderStatus } from "@/lib/push/notify";
 
 const schema = z.object({
   orderId: z.string().uuid(),
@@ -28,5 +29,6 @@ export async function updateOrderStatus(input: z.input<typeof schema>) {
     .maybeSingle();
   if (error || !data) return { ok: false as const, message: "Não foi possível atualizar o pedido." };
   revalidatePath("/painel/pedidos");
+  later(() => notifyOrderStatus(orderId));
   return { ok: true as const, order: data };
 }

@@ -6,6 +6,7 @@ import { asaas } from "./asaas";
 import { demoGateway } from "./demo";
 import { mercadoPago } from "./mercadopago";
 import { PaymentError, type PixCustomer, type PixGateway, type PixProvider } from "./types";
+import { later, notifyNewOrder } from "@/lib/push/notify";
 
 /** Tempo que o cliente tem para pagar o Pix antes de o pedido ser cancelado. */
 export const PIX_MINUTES = 30;
@@ -124,11 +125,12 @@ export async function syncOrderPayment(orderId: string): Promise<PaymentStatus |
     try {
       const remote = await gateway.getPayment(account.access_token, payment.external_id);
       if (remote.status === "paid") {
-        await admin.rpc("mark_order_paid", {
+        const { data: changed } = await admin.rpc("mark_order_paid", {
           p_order_id: orderId,
           p_external_id: payment.external_id,
           p_amount_cents: remote.amountCents,
         });
+        if (changed) later(() => notifyNewOrder(orderId, { pixPaid: true }));
         return "paid";
       }
       if (status === "awaiting" && new Date(payment.expires_at).getTime() <= Date.now()) {

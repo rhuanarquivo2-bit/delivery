@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { Banknote, Check, CreditCard, MapPin, MessageCircle, QrCode, RefreshCw, StickyNote } from "lucide-react";
 import { courierAction } from "@/app/entregador/[token]/actions";
+import { PushToggle } from "@/components/push/push-toggle";
 import { Button } from "@/components/ui/button";
 import { collectInstruction, mapsUrl, settlement, whatsappUrl } from "@/lib/couriers";
 import { formatDay } from "@/lib/finance";
@@ -54,6 +55,12 @@ export function CourierApp({ token, portal }: { token: string; portal: CourierPo
           <RefreshCw className={cn(refreshing && "animate-spin")} /> Atualizar
         </Button>
       </header>
+
+      <PushToggle
+        target={{ audience: "courier", token }}
+        title="Avisar quando a loja passar uma entrega"
+        description="O celular toca mesmo com esta tela fechada."
+      />
 
       <section className="grid grid-cols-3 gap-2">
         <Tile label="Entregas hoje" value={String(today?.deliveries ?? 0)} />

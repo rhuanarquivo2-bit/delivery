@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarClock, CheckCircle2, Clock, MessageCircle, ShoppingBag, XCircle } from "lucide-react";
 import { DemoStoreBanner } from "@/components/loja/demo-banner";
 import { CreatePin } from "@/components/loja/create-pin";
+import { PushToggle } from "@/components/push/push-toggle";
 import { OrderLiveUpdates } from "@/components/loja/order-live-updates";
 import { RememberOrder } from "@/components/loja/remember-order";
 import { PixPayment } from "@/components/loja/pix-payment";
@@ -149,6 +150,14 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
             </p>
           ) : null}
         </div>
+
+        {!finished && !awaitingPix && !pixExpired ? (
+          <PushToggle
+            target={{ audience: "customer", token }}
+            title="Avisar quando o pedido mudar"
+            description="Você recebe uma notificação quando a loja aceitar, quando sair para entrega e quando chegar."
+          />
+        ) : null}
 
         {awaitingPix ? (
           <PixPayment

@@ -1,11 +1,26 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { appIconUrl } from "@/lib/push/app-icon";
 import { CourierApp } from "@/components/entregador/courier-app";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import type { CourierPortal } from "@/lib/types";
 
-export const metadata: Metadata = { title: { absolute: "Minhas entregas" }, robots: { index: false, follow: false } };
+export async function generateMetadata({ params }: PageProps<"/entregador/[token]">): Promise<Metadata> {
+  const { token } = await params;
+  const ok = /^[0-9a-f-]{36}$/i.test(token);
+  return {
+    title: { absolute: "Minhas entregas" },
+    robots: { index: false, follow: false },
+    ...(ok
+      ? {
+          manifest: `/api/manifest/entregador/${token}`,
+          appleWebApp: { capable: true, title: "Entregas", statusBarStyle: "default" as const },
+          icons: { apple: appIconUrl(180, "E") },
+        }
+      : {}),
+  };
+}
 
 export default async function EntregadorPage({ params }: PageProps<"/entregador/[token]">) {
   if (!isSupabaseConfigured) notFound();

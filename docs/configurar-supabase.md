@@ -53,6 +53,21 @@ Sem a chave secreta, o checkout só oferece pagamento na entrega. Em desenvolvim
 a cada 5 segundos, então dá para testar com a conta de testes do Mercado Pago (`TEST-...`)
 ou com o sandbox do Asaas (`$aact_hmlg_...`).
 
+## Notificações no celular (opcional)
+
+O painel recebe aviso de pedido novo, o motoboy recebe aviso de entrega passada para ele e o
+cliente recebe aviso a cada mudança do pedido. Cada um liga no próprio aparelho, no botão
+**Ativar**. O servidor precisa de:
+
+1. `SUPABASE_SECRET_KEY` (a mesma do Pix online).
+2. `NEXT_PUBLIC_VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY`: gere o par uma vez com
+   `npx web-push generate-vapid-keys`. Não troque depois: quem já ativou teria de ativar de novo.
+3. Opcional: `VAPID_SUBJECT` (ex.: `mailto:contato@SEU-DOMINIO.com.br`).
+
+No Android e no computador funciona direto no navegador. No iPhone (iOS 16.4 ou mais novo)
+só funciona com o site adicionado à tela de início (Compartilhar > Adicionar à Tela de Início);
+o botão explica isso para quem abrir pelo Safari.
+
 ## Modo demonstração
 
 A demonstração (`/demo`) cria uma loja de exemplo sem pedir cadastro. Para funcionar:
