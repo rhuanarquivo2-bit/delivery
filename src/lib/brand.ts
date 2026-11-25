@@ -10,5 +10,7 @@ const salesDigits = (process.env.NEXT_PUBLIC_SALES_WHATSAPP || "31982346027").re
 export const SALES_WHATSAPP =
   salesDigits.length >= 12 && salesDigits.startsWith("55") ? salesDigits : salesDigits ? `55${salesDigits}` : "";
 
-/** Preço do plano mostrado na página de vendas. */
-export const PLAN_PRICE = "R$ 99,90";
+/** Preço do plano mostrado na página de vendas (preço promocional). */
+export const PLAN_PRICE = "R$ 79,90";
+/** Preço cheio, mostrado riscado ao lado da promoção. Deixe "" para tirar a promoção. */
+export const PLAN_PRICE_FULL: string = "R$ 99,90";

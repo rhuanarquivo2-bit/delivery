@@ -34,6 +34,8 @@ export type AdminStore = {
   access_until: string | null;
   blocked: boolean;
   blocked_reason: string | null;
+  /** false = em teste grátis; true = cliente pagante. */
+  paid: boolean;
   owner_email: string | null;
   phone: string | null;
   whatsapp: string | null;
