@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CalendarPlus, ExternalLink, Lock, LockOpen, MessageCircle, Infinity as InfinityIcon, StickyNote } from "lucide-react";
-import { extendStore, saveStoreNote, setStoreBlocked, setStoreUntil, type AdminResult } from "@/app/admin/actions";
+import { BadgeCheck, CalendarPlus, ExternalLink, FlaskConical, Lock, LockOpen, MessageCircle, Infinity as InfinityIcon, StickyNote, Trash2 } from "lucide-react";
+import { deleteStore, extendStore, saveStoreNote, setStoreBlocked, setStorePaid, setStoreUntil, type AdminResult } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,18 @@ function StatusBadge({ access }: { access: AccessState }) {
   return <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold", tone)}>{label}</span>;
 }
 
+function PlanBadge({ paid }: { paid: boolean }) {
+  return paid ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">
+      <BadgeCheck className="size-3.5" /> Pagante
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">
+      <FlaskConical className="size-3.5" /> Teste grátis
+    </span>
+  );
+}
+
 const fmtDate = (iso: string | null) =>
   iso ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(new Date(iso)) : "—";
 
@@ -43,6 +55,8 @@ export function StoreAccessCard({ store, access, siteHref }: { store: AdminStore
   const [date, setDate] = useState(toDateInputBR(store.access_until));
   const [reason, setReason] = useState(store.blocked_reason ?? "");
   const [note, setNote] = useState(store.note ?? "");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [typedSlug, setTypedSlug] = useState("");
 
   const act = (fn: () => Promise<AdminResult>, done: string) =>
     startTransition(async () => {
@@ -59,6 +73,7 @@ export function StoreAccessCard({ store, access, siteHref }: { store: AdminStore
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-base font-semibold">{store.name}</h2>
+            <PlanBadge paid={store.paid} />
             <StatusBadge access={access} />
           </div>
           <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -146,6 +161,22 @@ export function StoreAccessCard({ store, access, siteHref }: { store: AdminStore
                 <InfinityIcon /> Sem prazo
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">Dar prazo marca a loja como pagante.</p>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={pending}
+              className="justify-self-start"
+              onClick={() =>
+                act(
+                  () => setStorePaid(store.id, !store.paid),
+                  store.paid ? "Marcada como teste grátis." : "Marcada como pagante.",
+                )
+              }
+            >
+              {store.paid ? <FlaskConical /> : <BadgeCheck />}
+              {store.paid ? "Voltar para teste grátis" : "Marcar como pagante"}
+            </Button>
           </div>
 
           <div className="grid content-start gap-2">
@@ -177,7 +208,7 @@ export function StoreAccessCard({ store, access, siteHref }: { store: AdminStore
               value={note}
               maxLength={1000}
               className="min-h-20"
-              placeholder="Ex.: plano mensal R$ 99, paga todo dia 10"
+              placeholder="Ex.: plano mensal R$ 79,90, paga todo dia 10"
               onChange={(e) => setNote(e.target.value)}
             />
             <Button
@@ -189,6 +220,55 @@ export function StoreAccessCard({ store, access, siteHref }: { store: AdminStore
             >
               Salvar anotação
             </Button>
+          </div>
+
+          <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 md:col-span-3">
+            {confirmDelete ? (
+              <div className="grid gap-3">
+                <p className="text-sm text-red-900">
+                  <strong>Apagar {store.name} para sempre?</strong> Some o site, o cardápio, os pedidos, os clientes e os
+                  motoboys dessa loja. <strong>Não dá para desfazer.</strong> Para confirmar, digite o endereço da loja:{" "}
+                  <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs">{store.slug}</code>
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    aria-label="Endereço da loja para confirmar"
+                    value={typedSlug}
+                    onChange={(e) => setTypedSlug(e.target.value)}
+                    placeholder={store.slug}
+                    autoComplete="off"
+                    className="h-9 max-w-64 bg-white"
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={pending || typedSlug.trim().toLowerCase() !== store.slug}
+                    onClick={() => act(() => deleteStore(store.id, typedSlug), "Loja apagada.")}
+                  >
+                    <Trash2 /> Apagar para sempre
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      setTypedSlug("");
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-red-900">
+                  Estabelecimento que não vai mais usar? Você pode apagar a loja e tudo dela.
+                </p>
+                <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 /> Apagar loja
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

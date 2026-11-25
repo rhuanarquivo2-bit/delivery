@@ -10,11 +10,15 @@ export type AdminResult = { ok: boolean; message?: string };
 
 const id = z.string().uuid();
 
+const ERRORS: Record<string, string> = {
+  confirmacao_invalida: "O endereço digitado não confere. A loja não foi apagada.",
+};
+
 async function run(fn: string, args: Record<string, unknown>): Promise<AdminResult> {
   await requirePlatformAdmin();
   const supabase = await createClient();
   const { error } = await supabase.rpc(fn, args);
-  if (error) return { ok: false, message: "Não foi possível salvar. Tente de novo." };
+  if (error) return { ok: false, message: ERRORS[error.message] ?? "Não foi possível salvar. Tente de novo." };
   revalidatePath("/admin");
   return { ok: true };
 }
@@ -38,6 +42,18 @@ export async function setStoreUntil(storeId: string, date: string) {
 export async function setStoreBlocked(storeId: string, blocked: boolean, reason: string) {
   if (!id.safeParse(storeId).success) return { ok: false, message: "Loja inválida." };
   return run("admin_set_store_blocked", { p_store_id: storeId, p_blocked: blocked, p_reason: reason.slice(0, 200) });
+}
+
+/** Marca a loja como pagante ou de volta para teste grátis (a validade não muda). */
+export async function setStorePaid(storeId: string, paid: boolean) {
+  if (!id.safeParse(storeId).success) return { ok: false, message: "Loja inválida." };
+  return run("admin_set_store_paid", { p_store_id: storeId, p_paid: paid });
+}
+
+/** Apaga a loja e tudo dela. Só funciona digitando o endereço (slug) da loja. */
+export async function deleteStore(storeId: string, confirmSlug: string) {
+  if (!id.safeParse(storeId).success) return { ok: false, message: "Loja inválida." };
+  return run("admin_delete_store", { p_store_id: storeId, p_confirm_slug: confirmSlug.slice(0, 60) });
 }
 
 export async function saveStoreNote(storeId: string, note: string) {

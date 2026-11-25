@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { APP_NAME, APP_TAGLINE, PLAN_PRICE, SALES_WHATSAPP } from "@/lib/brand";
+import { APP_NAME, APP_TAGLINE, PLAN_PRICE, PLAN_PRICE_FULL, SALES_WHATSAPP } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -115,7 +115,7 @@ const PLAN_ITEMS = [
 const FAQ = [
   {
     q: "Quanto custa?",
-    a: `${PLAN_PRICE} por mês, com tudo incluído e pedidos ilimitados. Não cobramos comissão por pedido. No Pix online, a única taxa é a da sua conta no Mercado Pago ou no Asaas.`,
+    a: `${PLAN_PRICE_FULL ? `De ${PLAN_PRICE_FULL} por ${PLAN_PRICE}` : PLAN_PRICE} por mês, com tudo incluído e pedidos ilimitados. Não cobramos comissão por pedido. No Pix online, a única taxa é a da sua conta no Mercado Pago ou no Asaas.`,
   },
   {
     q: "Preciso instalar alguma coisa?",
@@ -380,8 +380,20 @@ export default function Home() {
             ) : null}
           </div>
           <div className="rounded-3xl border-2 border-brand/70 bg-card p-8 shadow-xl shadow-brand/5">
-            <p className="text-sm font-semibold text-brand">Plano completo</p>
-            <p className="mt-2 flex items-baseline gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-brand">Plano completo</p>
+              {PLAN_PRICE_FULL ? (
+                <span className="rounded-full bg-brand px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-brand-foreground">
+                  Promoção
+                </span>
+              ) : null}
+            </div>
+            {PLAN_PRICE_FULL ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                De <span className="line-through">{PLAN_PRICE_FULL}</span> por
+              </p>
+            ) : null}
+            <p className={PLAN_PRICE_FULL ? "mt-0.5 flex items-baseline gap-1.5" : "mt-2 flex items-baseline gap-1.5"}>
               <span className="text-5xl font-bold tracking-tight">{PLAN_PRICE}</span>
               <span className="text-muted-foreground">/mês</span>
             </p>

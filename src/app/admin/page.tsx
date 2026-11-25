@@ -11,17 +11,21 @@ import { cn } from "@/lib/utils";
 
 const FILTERS = [
   { key: "todas", label: "Todas" },
-  { key: "ativas", label: "Com acesso" },
+  { key: "teste", label: "Em teste grátis" },
+  { key: "pagantes", label: "Pagantes" },
   { key: "vencendo", label: `Vencem em até ${WARN_DAYS} dias` },
   { key: "vencidas", label: "Vencidas" },
   { key: "bloqueadas", label: "Bloqueadas" },
 ] as const;
 type Filter = (typeof FILTERS)[number]["key"];
 
-function matches(filter: Filter, a: AccessState) {
+function matches(filter: Filter, a: AccessState, paid: boolean) {
+  const ok = a.kind === "active" || a.kind === "unlimited";
   switch (filter) {
-    case "ativas":
-      return a.kind === "active" || a.kind === "unlimited";
+    case "teste":
+      return ok && !paid;
+    case "pagantes":
+      return ok && paid;
     case "vencendo":
       return a.kind === "active" && a.daysLeft <= WARN_DAYS;
     case "vencidas":
@@ -41,10 +45,10 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   const [stores, settings] = await Promise.all([listAdminStores(), getPlatformSettings()]);
   const now = new Date();
   const rows = stores.map((s) => ({ store: s, access: storeAccess({ ...s, is_demo: false }, now) }));
-  const count = (f: Filter) => rows.filter((r) => matches(f, r.access)).length;
+  const count = (f: Filter) => rows.filter((r) => matches(f, r.access, r.store.paid)).length;
   const visible = rows.filter(
     (r) =>
-      matches(filter, r.access) &&
+      matches(filter, r.access, r.store.paid) &&
       (!q || [r.store.name, r.store.slug, r.store.owner_email ?? ""].some((t) => t.toLowerCase().includes(q))),
   );
 
@@ -66,14 +70,15 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: "Lojas", value: rows.length, tone: "" },
-          { label: "Com acesso", value: count("ativas"), tone: "text-emerald-700" },
+          { label: "Em teste grátis", value: count("teste"), tone: "text-sky-700" },
+          { label: "Pagantes", value: count("pagantes"), tone: "text-emerald-700" },
           { label: "Vencidas", value: count("vencidas"), tone: "text-amber-700" },
           { label: "Bloqueadas", value: count("bloqueadas"), tone: "text-red-700" },
         ].map((t) => (
-          <Card key={t.label}>
+          <Card key={t.label} className={t.label === "Lojas" ? "col-span-2 sm:col-span-1" : undefined}>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{t.label}</p>
               <p className={cn("mt-1 text-2xl font-bold tabular-nums", t.tone)}>{t.value}</p>
