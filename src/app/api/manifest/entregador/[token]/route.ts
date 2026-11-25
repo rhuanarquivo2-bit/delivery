@@ -1,4 +1,4 @@
-import { manifestIcons } from "@/lib/push/app-icon";
+import { fixedIcon, manifestIcons } from "@/lib/push/app-icon";
 
 /** App do motoboy (o link dele vira um ícone na tela inicial). */
 export async function GET(_req: Request, { params }: RouteContext<"/api/manifest/entregador/[token]">) {
@@ -13,9 +13,9 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/manifest
       scope: `/entregador/${token}`,
       display: "standalone",
       background_color: "#ffffff",
-      theme_color: "#e4572e",
+      theme_color: "#0f766e",
       lang: "pt-BR",
-      icons: manifestIcons("E"),
+      icons: manifestIcons((size) => fixedIcon("entregador", size)),
     },
     { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "private, max-age=3600" } },
   );

@@ -1,5 +1,5 @@
 import { APP_NAME } from "@/lib/brand";
-import { manifestIcons } from "@/lib/push/app-icon";
+import { fixedIcon, manifestIcons } from "@/lib/push/app-icon";
 
 /** App do painel (para instalar no celular e receber aviso de pedido novo). */
 export function GET() {
@@ -14,7 +14,7 @@ export function GET() {
       background_color: "#ffffff",
       theme_color: "#e4572e",
       lang: "pt-BR",
-      icons: manifestIcons("F"),
+      icons: manifestIcons((size) => fixedIcon("painel", size)),
     },
     { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=3600" } },
   );

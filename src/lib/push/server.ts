@@ -17,7 +17,15 @@ function setup() {
   }
 }
 
-export type PushPayload = { title: string; body: string; url: string; tag?: string; icon?: string | null };
+export type PushPayload = {
+  title: string;
+  body: string;
+  url: string;
+  tag?: string;
+  icon?: string | null;
+  actions?: { action: string; title: string; url: string }[];
+  requireInteraction?: boolean;
+};
 export type PushTarget =
   | { audience: "store"; storeId: string }
   | { audience: "courier"; courierId: string }

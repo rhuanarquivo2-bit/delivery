@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { appIconUrl } from "@/lib/push/app-icon";
+import { fixedIcon } from "@/lib/push/app-icon";
 import { Alert } from "@/components/ui/alert";
 import { DemoBar } from "@/components/painel/demo-bar";
 import { PainelShell } from "@/components/painel/shell";
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "Painel",
   manifest: "/api/manifest/painel",
   appleWebApp: { capable: true, title: "Painel", statusBarStyle: "default" },
-  icons: { apple: appIconUrl(180) },
+  icons: { apple: fixedIcon("painel", 180) },
 };
 
 export default async function PainelLayout({ children }: LayoutProps<"/painel">) {
