@@ -10,6 +10,7 @@ import type { LoyaltyStatus } from "@/lib/loyalty";
 import type { OrderSummary } from "@/lib/my-orders";
 import type { OrderQuote } from "@/lib/types";
 import { formatBRL, parseBRLToCents } from "@/lib/utils";
+import { later, notifyNewOrder, orderIdByToken } from "@/lib/push/notify";
 
 const ERRORS: Record<string, string> = {
   loja_nao_encontrada: "Loja não encontrada.",
@@ -167,6 +168,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       const message = err instanceof PaymentError ? err.message : "Não conseguimos gerar o Pix agora.";
       return { ok: false, message };
     }
+  } else {
+    later(() => notifyNewOrder(result.id));
   }
   return { ok: true, token: result.token, number: result.number };
 }
@@ -176,6 +179,12 @@ export async function simulateDemoPix(token: string) {
   if (!z.string().uuid().safeParse(token).success) return false;
   const supabase = await createClient();
   const { data } = await supabase.rpc("demo_pay_pix", { p_token: token });
+  if (data) {
+    later(async () => {
+      const id = await orderIdByToken(token);
+      if (id) await notifyNewOrder(id, { pixPaid: true });
+    });
+  }
   return Boolean(data);
 }
 

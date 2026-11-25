@@ -1,6 +1,20 @@
+import type { Metadata } from "next";
+import { appIconUrl } from "@/lib/push/app-icon";
 import { StoreTracking } from "@/components/loja/store-tracking";
 import { getPublicStore } from "@/lib/stores";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+
+/** Permite instalar o site da loja na tela inicial (no iPhone, é o que libera as notificações). */
+export async function generateMetadata({ params }: LayoutProps<"/loja/[slug]">): Promise<Metadata> {
+  const { slug } = await params;
+  const store = isSupabaseConfigured ? (await getPublicStore(slug))?.store : null;
+  if (!store) return {};
+  return {
+    manifest: `/api/manifest/loja/${store.slug}`,
+    appleWebApp: { capable: true, title: store.name, statusBarStyle: "default" },
+    icons: { apple: appIconUrl(180, store.name, store.primary_color) },
+  };
+}
 
 /** Site da loja: carrega o Facebook Pixel e o Google Analytics, se a loja configurou. */
 export default async function LojaLayout({ children, params }: LayoutProps<"/loja/[slug]">) {

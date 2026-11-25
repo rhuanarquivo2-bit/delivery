@@ -1,3 +1,4 @@
+import { PushToggle } from "@/components/push/push-toggle";
 import { OrdersBoard } from "@/components/painel/pedidos/orders-board";
 import { getBoardOrders } from "@/lib/orders";
 import { sweepStorePayments } from "@/lib/payments";
@@ -16,5 +17,14 @@ export default async function PedidosPage() {
     getBoardOrders(store.id),
     supabase.from("couriers").select("id, name, active").eq("store_id", store.id).order("name"),
   ]);
-  return <OrdersBoard storeId={store.id} initialOrders={orders} couriers={couriers ?? []} />;
+  return (
+    <div className="grid gap-4">
+      <PushToggle
+        target={{ audience: "store" }}
+        title="Avisar neste aparelho quando chegar pedido"
+        description="Chega uma notificação com som mesmo com o painel fechado ou o celular bloqueado."
+      />
+      <OrdersBoard storeId={store.id} initialOrders={orders} couriers={couriers ?? []} />
+    </div>
+  );
 }

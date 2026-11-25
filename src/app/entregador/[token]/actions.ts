@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { later, notifyOrderStatus } from "@/lib/push/notify";
 
 const ERRORS: Record<string, string> = {
   link_invalido: "Este link não vale mais. Peça um novo para a loja.",
@@ -17,5 +18,6 @@ export async function courierAction(token: string, orderId: string, action: "dis
   const supabase = await createClient();
   const { error } = await supabase.rpc("courier_update", { p_token: token, p_order_id: orderId, p_action: action });
   if (error) return { ok: false as const, message: ERRORS[error.message] ?? "Não deu certo. Tente de novo." };
+  later(() => notifyOrderStatus(orderId));
   return { ok: true as const };
 }
