@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { appIconUrl } from "@/lib/push/app-icon";
+import { storeIconUrl } from "@/lib/push/app-icon";
 import { StoreTracking } from "@/components/loja/store-tracking";
 import { getPublicStore } from "@/lib/stores";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: LayoutProps<"/loja/[slug]">):
   return {
     manifest: `/api/manifest/loja/${store.slug}`,
     appleWebApp: { capable: true, title: store.name, statusBarStyle: "default" },
-    icons: { apple: appIconUrl(180, store.name, store.primary_color) },
+    icons: { apple: storeIconUrl(store.slug, 180, store.logo_url) },
   };
 }
 

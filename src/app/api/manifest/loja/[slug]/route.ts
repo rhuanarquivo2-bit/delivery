@@ -1,6 +1,6 @@
 import { getPublicStore } from "@/lib/stores";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { manifestIcons } from "@/lib/push/app-icon";
+import { manifestIcons, storeIconUrl } from "@/lib/push/app-icon";
 
 /** App da loja para o cliente (instalar na tela inicial e receber o status do pedido). */
 export async function GET(_req: Request, { params }: RouteContext<"/api/manifest/loja/[slug]">) {
@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/manifest
       background_color: "#ffffff",
       theme_color: store.primary_color,
       lang: "pt-BR",
-      icons: manifestIcons(store.name, store.primary_color),
+      icons: manifestIcons((size) => storeIconUrl(store.slug, size, store.logo_url)),
     },
     { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=3600" } },
   );

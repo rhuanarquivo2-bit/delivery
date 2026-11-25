@@ -1,7 +1,8 @@
 import "server-only";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Fulfillment, OrderStatus } from "@/lib/types";
+import type { Fulfillment, OrderStatus, PaymentMethod, PaymentStatus } from "@/lib/types";
+import { storeIconUrl } from "./app-icon";
 import { courierMessage, newOrderMessage, statusMessage } from "./messages";
 import { isPushConfigured, sendPush } from "./server";
 
@@ -31,21 +32,30 @@ type Row = {
   address_street: string | null;
   address_number: string | null;
   address_district: string | null;
+  address_reference: string | null;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  change_for_cents: number | null;
+  cancel_reason: string | null;
   courier_id: string | null;
   store_id: string;
-  stores: { name: string; slug: string; logo_url: string | null };
+  stores: { name: string; slug: string; logo_url: string | null; address_city: string | null };
+  order_items: { product_name: string; size_name: string | null; quantity: number }[];
 };
 
 async function load(orderId: string) {
   const { data } = await createAdminClient()
     .from("orders")
     .select(
-      "id, number, status, fulfillment, customer_name, total_cents, scheduled_for, public_token, address_street, address_number, address_district, courier_id, store_id, stores(name, slug, logo_url)",
+      "id, number, status, fulfillment, customer_name, total_cents, scheduled_for, public_token, address_street, address_number, address_district, address_reference, payment_method, payment_status, change_for_cents, cancel_reason, courier_id, store_id, stores(name, slug, logo_url, address_city), order_items(product_name, size_name, quantity)",
     )
     .eq("id", orderId)
     .maybeSingle();
   return data as unknown as Row | null;
 }
+
+/** Ícone da notificação: o mesmo do app da loja (logo ou inicial). */
+const storeIcon = (o: Row) => storeIconUrl(o.stores.slug, 192, o.stores.logo_url);
 
 /** Painel da loja: chegou pedido (ou o Pix foi pago). */
 export async function notifyNewOrder(orderId: string, opts: { pixPaid?: boolean } = {}) {
@@ -54,8 +64,18 @@ export async function notifyNewOrder(orderId: string, opts: { pixPaid?: boolean 
   if (!o) return;
   await sendPush(
     { audience: "store", storeId: o.store_id },
-    { ...newOrderMessage({ ...o, scheduled: Boolean(o.scheduled_for), pixPaid: opts.pixPaid }), icon: o.stores.logo_url },
+    { ...newOrderMessage({ ...o, items: o.order_items ?? [], pixPaid: opts.pixPaid }), icon: storeIcon(o) },
   );
+}
+
+/** Pontos que o pedido rendeu (compra + boas-vindas), para contar no aviso de entregue. */
+async function pointsEarned(orderId: string) {
+  const { data } = await createAdminClient()
+    .from("loyalty_ledger")
+    .select("points, kind")
+    .eq("order_id", orderId)
+    .in("kind", ["earn", "welcome"]);
+  return (data ?? []).reduce((n, r) => n + Number(r.points), 0);
 }
 
 /** Cliente: o pedido mudou de status. */
@@ -63,8 +83,15 @@ export async function notifyOrderStatus(orderId: string) {
   if (!isPushConfigured) return;
   const o = await load(orderId);
   if (!o) return;
-  const msg = statusMessage({ ...o, storeName: o.stores.name, slug: o.stores.slug, token: o.public_token });
-  if (msg) await sendPush({ audience: "customer", orderId: o.id }, { ...msg, icon: o.stores.logo_url });
+  const points = o.status === "delivered" ? await pointsEarned(o.id).catch(() => 0) : 0;
+  const msg = statusMessage({
+    ...o,
+    storeName: o.stores.name,
+    slug: o.stores.slug,
+    token: o.public_token,
+    pointsEarned: points,
+  });
+  if (msg) await sendPush({ audience: "customer", orderId: o.id }, { ...msg, icon: storeIcon(o) });
 }
 
 /** Motoboy: entrega atribuída a ele. */
@@ -82,14 +109,17 @@ export async function notifyCourier(orderId: string) {
     { audience: "courier", courierId: o.courier_id },
     {
       ...courierMessage({
-        number: o.number,
+        ...o,
         storeName: o.stores.name,
+        customerName: o.customer_name,
         street: o.address_street,
         streetNumber: o.address_number,
         district: o.address_district,
+        reference: o.address_reference,
+        city: o.stores.address_city,
         token: courier.access_token as string,
       }),
-      icon: o.stores.logo_url,
+      icon: storeIcon(o),
     },
   );
 }

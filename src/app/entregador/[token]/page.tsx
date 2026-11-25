@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { appIconUrl } from "@/lib/push/app-icon";
+import { fixedIcon } from "@/lib/push/app-icon";
 import { CourierApp } from "@/components/entregador/courier-app";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: PageProps<"/entregador/[token
       ? {
           manifest: `/api/manifest/entregador/${token}`,
           appleWebApp: { capable: true, title: "Entregas", statusBarStyle: "default" as const },
-          icons: { apple: appIconUrl(180, "E") },
+          icons: { apple: fixedIcon("entregador", 180) },
         }
       : {}),
   };
