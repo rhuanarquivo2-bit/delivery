@@ -93,6 +93,7 @@ export function optionErrors(category: Category, optionIds: string[]) {
 
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   pix_online: "Pix online",
+  pix_whatsapp: "Pix pelo WhatsApp",
   pix_delivery: "Pix na entrega",
   card_delivery: "Cartão na entrega",
   cash: "Dinheiro",

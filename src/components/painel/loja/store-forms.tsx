@@ -170,11 +170,23 @@ export function SiteSettingsForm({ store, products = [] }: { store: Store; produ
     <Card>
       <CardHeader>
         <CardTitle>Site e pedidos</CardTitle>
-        <CardDescription>Agendamento, promoções, sugestões no carrinho, impressão e ferramentas de anúncio.</CardDescription>
+        <CardDescription>Pix pelo WhatsApp, agendamento, promoções, sugestões no carrinho, impressão e ferramentas de anúncio.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={keepValuesOnSubmit(action)} className="grid gap-4">
           <Feedback state={state} />
+          <Switch
+            name="pix_whatsapp_enabled"
+            defaultChecked={store.pix_whatsapp_enabled}
+            title="Pix pelo WhatsApp (sem integração com banco)"
+            description="O cliente escolhe “Pix pelo WhatsApp”, envia o pedido e o site abre o WhatsApp da loja com o pedido pronto, pedindo a chave Pix. Você confere o comprovante e marca o pedido como pago no painel."
+          >
+            {store.whatsapp ? null : (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Cadastre o WhatsApp da loja em “Dados da loja” acima. Sem ele, essa opção não aparece no site.
+              </p>
+            )}
+          </Switch>
           <Switch
             name="accepts_scheduled"
             defaultChecked={store.accepts_scheduled}

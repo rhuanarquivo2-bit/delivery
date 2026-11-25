@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   CreditCard,
   Loader2,
+  MessageCircle,
   Minus,
   Plus,
   QrCode,
@@ -45,12 +46,14 @@ type StoreInfo = {
   min_order_cents: number;
   prep_time_minutes: number;
   pix_provider: "mercadopago" | "asaas" | "demo" | null;
+  /** Pix pelo WhatsApp: a loja manda a chave Pix no WhatsApp (sem integração com banco). */
+  pix_whatsapp: boolean;
   open_override: boolean | null;
   accepts_scheduled: boolean;
   schedule_days_ahead: number;
 };
 type Zone = { id: string; name: string; fee: number };
-type Payment = "pix_online" | "pix_delivery" | "card_delivery" | "cash";
+type Payment = "pix_online" | "pix_whatsapp" | "pix_delivery" | "card_delivery" | "cash";
 
 const CUSTOMER_KEY = "cliente";
 
@@ -346,7 +349,8 @@ export default function CheckoutFormInner({
       }
       cart.clear();
       rememberOrders(store.slug, [result.token]);
-      router.push(`/loja/${store.slug}/pedido/${result.token}`);
+      // Pix pelo WhatsApp: a página do pedido abre o WhatsApp da loja sozinha (e tem o botão, se o celular bloquear).
+      router.push(`/loja/${store.slug}/pedido/${result.token}${payment === "pix_whatsapp" ? "?whatsapp=1" : ""}`);
     });
   };
 
@@ -624,33 +628,49 @@ export default function CheckoutFormInner({
         ) : null}
 
         <Block
-          title={store.pix_provider ? "Pagamento" : "Pagamento na entrega"}
-          subtitle={store.pix_provider ? undefined : "Você paga quando receber o pedido."}
+          title={store.pix_provider || store.pix_whatsapp ? "Pagamento" : "Pagamento na entrega"}
+          subtitle={store.pix_provider || store.pix_whatsapp ? undefined : "Você paga quando receber o pedido."}
         >
-          {store.pix_provider ? (
+          {store.pix_provider || store.pix_whatsapp ? (
             <div className="mb-4 grid gap-3">
-              <Option
-                selected={payment === "pix_online"}
-                onClick={() => {
-                  setPayment("pix_online");
-                  setNeedsChange(false);
-                }}
-                icon={<Zap className="size-5" />}
-                label="Pagar agora com Pix"
-                hint="Você paga pelo app do banco e o pedido segue na hora"
-              />
-              {needsCpf ? (
-                <Field label="CPF de quem vai pagar" htmlFor="cpf" hint="O banco pede o CPF para gerar o Pix.">
-                  <Input
-                    id="cpf"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="000.000.000-00"
-                    className="max-w-56"
-                    value={cpf}
-                    onChange={(e) => setCpf(formatCpf(e.target.value))}
+              {store.pix_whatsapp ? (
+                <Option
+                  selected={payment === "pix_whatsapp"}
+                  onClick={() => {
+                    setPayment("pix_whatsapp");
+                    setNeedsChange(false);
+                  }}
+                  icon={<MessageCircle className="size-5" />}
+                  label="Pix pelo WhatsApp"
+                  hint="Envie o pedido e receba a chave Pix no WhatsApp da loja"
+                />
+              ) : null}
+              {store.pix_provider ? (
+                <>
+                  <Option
+                    selected={payment === "pix_online"}
+                    onClick={() => {
+                      setPayment("pix_online");
+                      setNeedsChange(false);
+                    }}
+                    icon={<Zap className="size-5" />}
+                    label="Pagar agora com Pix"
+                    hint="Você paga pelo app do banco e o pedido segue na hora"
                   />
-                </Field>
+                  {needsCpf ? (
+                    <Field label="CPF de quem vai pagar" htmlFor="cpf" hint="O banco pede o CPF para gerar o Pix.">
+                      <Input
+                        id="cpf"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="000.000.000-00"
+                        className="max-w-56"
+                        value={cpf}
+                        onChange={(e) => setCpf(formatCpf(e.target.value))}
+                      />
+                    </Field>
+                  ) : null}
+                </>
               ) : null}
               <p className="pt-1 text-sm font-medium text-muted-foreground">Ou pague na entrega</p>
             </div>
@@ -825,7 +845,9 @@ export default function CheckoutFormInner({
                   : "Enviando pedido..."
                 : payment === "pix_online"
                   ? "Pagar com Pix"
-                  : scheduling
+                  : payment === "pix_whatsapp"
+                    ? "Enviar e pagar no WhatsApp"
+                    : scheduling
                     ? "Agendar pedido"
                     : "Enviar pedido"}
             </span>

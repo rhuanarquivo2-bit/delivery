@@ -60,8 +60,13 @@ export function OrderTotals({ order }: { order: Order }) {
       </div>
       {order.payment_status === "paid" ? (
         <div className="flex justify-between font-bold">
-          <dt>Pago online</dt>
+          <dt>{order.payment_method === "pix_whatsapp" ? "Pix confirmado" : "Pago online"}</dt>
           <dd>Não cobrar na entrega</dd>
+        </div>
+      ) : order.payment_method === "pix_whatsapp" ? (
+        <div className="flex justify-between font-bold">
+          <dt>Pix a confirmar</dt>
+          <dd>Conferir comprovante no WhatsApp</dd>
         </div>
       ) : null}
       {order.payment_method === "cash" ? (

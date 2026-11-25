@@ -80,7 +80,7 @@ const schema = z.object({
     .string()
     .default("")
     .refine((v) => v === "" || !Number.isNaN(Date.parse(v)), "Horário de agendamento inválido. Escolha outro."),
-  payment_method: z.enum(["pix_online", "pix_delivery", "card_delivery", "cash"], {
+  payment_method: z.enum(["pix_online", "pix_whatsapp", "pix_delivery", "card_delivery", "cash"], {
     message: "Escolha a forma de pagamento.",
   }),
   customer_document: z

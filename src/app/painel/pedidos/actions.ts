@@ -32,3 +32,19 @@ export async function updateOrderStatus(input: z.input<typeof schema>) {
   later(() => notifyOrderStatus(orderId));
   return { ok: true as const, order: data };
 }
+
+/** Pix pelo WhatsApp: o lojista confere o comprovante e marca (ou desmarca) como pago. */
+export async function setWhatsappPixPaid(input: { orderId: string; paid: boolean }) {
+  await requireMyStore();
+  const parsed = z.object({ orderId: z.string().uuid(), paid: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { ok: false as const, message: "Dados inválidos." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("set_whatsapp_pix_paid", {
+    p_order_id: parsed.data.orderId,
+    p_paid: parsed.data.paid,
+  });
+  if (error || !data) return { ok: false as const, message: "Não foi possível atualizar o pagamento." };
+  revalidatePath("/painel/pedidos");
+  return { ok: true as const, order: data };
+}

@@ -8,10 +8,12 @@ import { PushToggle } from "@/components/push/push-toggle";
 import { OrderLiveUpdates } from "@/components/loja/order-live-updates";
 import { RememberOrder } from "@/components/loja/remember-order";
 import { PixPayment } from "@/components/loja/pix-payment";
+import { PixWhatsappBox } from "@/components/loja/pix-whatsapp-box";
 import { TrackPurchase } from "@/components/loja/store-tracking";
 import { formatScheduled } from "@/lib/schedule";
 import { getPublicStore } from "@/lib/stores";
 import { customerStatusLabel, customerSteps } from "@/lib/order-status";
+import { storeWhatsappUrl } from "@/lib/pix-whatsapp";
 import { changeDue, PAYMENT_LABELS } from "@/lib/pricing";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -59,9 +61,10 @@ const time = (iso: string | null) =>
       )
     : null;
 
-export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/pedido/[token]">) {
+export default async function PedidoPage({ params, searchParams }: PageProps<"/loja/[slug]/pedido/[token]">) {
   if (!isSupabaseConfigured) notFound();
   const { slug, token } = await params;
+  const { whatsapp: openWhatsapp } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(token)) notFound();
 
   const supabase = await createClient();
@@ -91,7 +94,11 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
   const awaitingPix = order.payment_status === "awaiting" && order.pix !== null;
   const pixExpired = order.payment_status === "expired";
   const change = changeDue(order.total_cents, order.change_for_cents);
-  const whatsapp = order.store.whatsapp ? `https://wa.me/55${order.store.whatsapp.replace(/^55/, "")}` : null;
+  const whatsapp = order.store.whatsapp ? storeWhatsappUrl(order.store.whatsapp) : null;
+  // Pix pelo WhatsApp: o cliente pede a chave Pix no WhatsApp da loja; a loja marca como pago no painel.
+  const pixWhatsapp = order.payment_method === "pix_whatsapp" && !cancelled && order.store.whatsapp ? order.store.whatsapp : null;
+  const address =
+    order.fulfillment === "delivery" ? `${order.address_street}, ${order.address_number} · ${order.address_district}` : null;
 
   return (
     <div className="flex-1" style={{ "--brand": order.store.primary_color } as React.CSSProperties}>
@@ -150,6 +157,28 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
             </p>
           ) : null}
         </div>
+
+        {pixWhatsapp ? (
+          <PixWhatsappBox
+            whatsapp={pixWhatsapp}
+            autoOpen={openWhatsapp === "1"}
+            paid={order.payment_status === "paid"}
+            order={{
+              number: order.number,
+              storeName: order.store.name,
+              customerName: order.customer_name,
+              fulfillment: order.fulfillment,
+              address,
+              scheduled: order.scheduled_for ? formatScheduled(order.scheduled_for) : null,
+              items: order.items,
+              subtotalCents: order.subtotal_cents,
+              deliveryFeeCents: order.delivery_fee_cents,
+              discountCents: order.discount_cents,
+              couponCode: order.coupon_code,
+              totalCents: order.total_cents,
+            }}
+          />
+        ) : null}
 
         {!finished && !awaitingPix && !pixExpired ? (
           <PushToggle
@@ -256,14 +285,16 @@ export default async function PedidoPage({ params }: PageProps<"/loja/[slug]/ped
           <p>
             <span className="text-muted-foreground">Pagamento: </span>
             {PAYMENT_LABELS[order.payment_method]}
-            {order.payment_status === "paid" ? " · pago" : ""}
+            {order.payment_status === "paid"
+              ? " · pago"
+              : order.payment_method === "pix_whatsapp" && !cancelled
+                ? " · a confirmar pela loja"
+                : ""}
             {change !== null ? ` · troco para ${formatBRL(order.change_for_cents!)} (${formatBRL(change)} de troco)` : ""}
           </p>
           <p>
             <span className="text-muted-foreground">{order.fulfillment === "delivery" ? "Entrega em: " : "Retirada na loja"}</span>
-            {order.fulfillment === "delivery"
-              ? `${order.address_street}, ${order.address_number} · ${order.address_district}`
-              : ""}
+            {address ?? ""}
           </p>
         </section>
 
