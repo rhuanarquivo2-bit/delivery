@@ -1,6 +1,7 @@
 import "server-only";
 import webpush from "web-push";
 import { createAdminClient, isAdminConfigured } from "@/lib/supabase/admin";
+import { isPushEndpoint } from "./endpoint";
 
 const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 const privateKey = process.env.VAPID_PRIVATE_KEY ?? "";
@@ -78,7 +79,7 @@ export async function sendPush(target: PushTarget, payload: PushPayload) {
     if (target.audience === "courier") q = q.eq("courier_id", target.courierId);
     if (target.audience === "customer") q = q.eq("order_id", target.orderId);
     const { data } = await q.limit(50);
-    const subs = data ?? [];
+    const subs = (data ?? []).filter((s) => isPushEndpoint(s.endpoint));
     const body = JSON.stringify(payload);
     const gone: string[] = [];
     let sent = 0;

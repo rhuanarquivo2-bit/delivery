@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { isAdminConfigured } from "@/lib/supabase/admin";
 import { getWebhookToken, syncByExternalId } from "@/lib/payments";
 
@@ -10,9 +11,10 @@ export async function POST(request: Request) {
   const storeId = new URL(request.url).searchParams.get("loja") ?? "";
   if (!isAdminConfigured || !/^[0-9a-f-]{36}$/i.test(storeId)) return new Response("ok");
 
+  // Se a loja tem token de aviso, ele é obrigatório (sem token ou diferente = recusado).
   const expected = await getWebhookToken(storeId);
-  const received = request.headers.get("asaas-access-token");
-  if (expected && received && received !== expected) return new Response("token inválido", { status: 401 });
+  const received = request.headers.get("asaas-access-token") ?? "";
+  if (expected && !sameToken(received, expected)) return new Response("token inválido", { status: 401 });
 
   const body = (await request.json().catch(() => null)) as { event?: string; payment?: { id?: string } } | null;
   const id = body?.payment?.id;
@@ -25,4 +27,10 @@ export async function POST(request: Request) {
     }
   }
   return new Response("ok");
+}
+
+function sameToken(a: string, b: string) {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
 }

@@ -299,12 +299,14 @@ export async function readMenuPhotos(formData: FormData): Promise<ReadMenuResult
     payload.push({ mediaType: type, data: Buffer.from(await file.arrayBuffer()).toString("base64") });
   }
 
-  if (store.is_demo) {
-    const supabase = await createClient();
-    const { data: allowed } = await supabase.rpc("consume_demo_ai_read", { p_store_id: store.id });
-    if (!allowed) {
-      return { ok: false, message: "A demonstração permite 3 leituras por foto. Crie sua loja para usar à vontade." };
-    }
+  // Limite de leituras (cada leitura custa uma chamada à IA): 3 na demonstração, 20 por dia nas lojas.
+  const supabase = await createClient();
+  const { data: allowed, error: limitError } = await supabase.rpc("consume_demo_ai_read", { p_store_id: store.id });
+  if (store.is_demo && !allowed) {
+    return { ok: false, message: "A demonstração permite 3 leituras por foto. Crie sua loja para usar à vontade." };
+  }
+  if (!store.is_demo && !limitError && allowed === false) {
+    return { ok: false, message: "Você já usou as 20 leituras por foto de hoje. Amanhã libera de novo." };
   }
 
   try {
