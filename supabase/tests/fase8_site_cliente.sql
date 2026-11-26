@@ -34,18 +34,21 @@ select array_agg(p.name) as mais_pedidos_sem_cancelado
 from best_sellers(:'sid') r(id) join products p on p.id = r.id;
 -- vazio: sem o pedido 2, o burger fica com 4 unidades (abaixo do mínimo de 5) e a salada com 0
 
--- cliente pelo celular (com ou sem máscara)
+-- cliente pelo celular (com ou sem máscara); o aparelho prova com o link de um pedido (fase 16)
+reset role;
+select public_token as tok_ana from orders where store_id = :'sid' order by created_at limit 1 \gset
+set role anon;
 select name, street, number, complement, reference, delivery_zone_id = :'zona' as zona_ok, zip, orders
-from customer_lookup(:'sid', '(11) 98888-7777');
+from customer_lookup(:'sid', '(11) 98888-7777', array[:'tok_ana']::uuid[]);
 -- Ana S. | Rua das Flores | 12 | apto 3 | perto da praça | t | 01310100 | 2
-select count(*) as numero_desconhecido from customer_lookup(:'sid', '11900001111');  -- 0
-select count(*) as numero_curto from customer_lookup(:'sid', '9888');  -- 0
-select count(*) as numero_vazio from customer_lookup(:'sid', null);  -- 0
+select count(*) as numero_desconhecido from customer_lookup(:'sid', '11900001111', array[:'tok_ana']::uuid[]);  -- 0
+select count(*) as numero_curto from customer_lookup(:'sid', '9888', array[:'tok_ana']::uuid[]);  -- 0
+select count(*) as numero_vazio from customer_lookup(:'sid', null, array[:'tok_ana']::uuid[]);  -- 0
 
 -- outra loja não enxerga os clientes desta
 reset role; set role authenticated; set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 insert into stores (slug, name) values ('outra8', 'Outra Loja') returning id as outra \gset
 reset role; set role anon;
-select count(*) as outra_loja from customer_lookup(:'outra', '11988887777');  -- 0
+select count(*) as outra_loja from customer_lookup(:'outra', '11988887777', array[:'tok_ana']::uuid[]);  -- 0
 select count(*) as outra_loja_mais_pedidos from best_sellers(:'outra');  -- 0
 reset role;

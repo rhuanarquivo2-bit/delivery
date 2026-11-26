@@ -49,6 +49,7 @@ const ERRORS: Record<string, string> = {
   pontos_insuficientes: "Você não tem pontos suficientes para essa recompensa.",
   loja_indisponivel: "Esta loja não está recebendo pedidos online no momento.",
   pontos_sem_acesso: "Para usar seus pontos, entre em Meus pedidos com seu celular e senha.",
+  muitos_pedidos: "Muitos pedidos seguidos com este celular. Espere alguns minutos e tente de novo.",
 };
 
 function errorMessage(error: { message: string; details?: string | null }) {
@@ -271,12 +272,18 @@ export type SavedCustomerData = {
   orders: number;
 };
 
-/** Checkout: dados do último pedido feito com esse celular nessa loja. */
-export async function lookupCustomer(storeId: string, phone: string): Promise<SavedCustomerData | null> {
+/**
+ * Checkout: dados do último pedido feito com esse celular nessa loja.
+ * Só responde se o aparelho tiver o link de um pedido desse celular (os links ficam guardados
+ * no próprio aparelho), para ninguém descobrir o endereço de outra pessoa só pelo número.
+ */
+export async function lookupCustomer(storeId: string, phone: string, tokens: string[]): Promise<SavedCustomerData | null> {
   const digits = phone.replace(/\D/g, "");
+  const ids = z.array(z.string().uuid()).max(50).safeParse(tokens);
   if (!z.string().uuid().safeParse(storeId).success || digits.length < 10 || digits.length > 11) return null;
+  if (!ids.success || ids.data.length === 0) return null;
   const supabase = await createClient();
-  const { data } = await supabase.rpc("customer_lookup", { p_store_id: storeId, p_phone: digits });
+  const { data } = await supabase.rpc("customer_lookup", { p_store_id: storeId, p_phone: digits, p_tokens: ids.data });
   const row = (Array.isArray(data) ? data[0] : null) as
     | {
         name: string;

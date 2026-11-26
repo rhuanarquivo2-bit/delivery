@@ -3,10 +3,11 @@
 import { z } from "zod";
 import { requireMyStore, requireUser } from "@/lib/stores";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isPushEndpoint } from "./endpoint";
 import { isPushConfigured, removeSubscription, saveSubscription } from "./server";
 
 const subSchema = z.object({
-  endpoint: z.string().url().startsWith("https://").max(1000),
+  endpoint: z.string().url().max(1000).refine(isPushEndpoint),
   keys: z.object({ p256dh: z.string().min(20).max(200), auth: z.string().min(8).max(100) }),
 });
 

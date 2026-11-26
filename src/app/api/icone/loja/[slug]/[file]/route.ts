@@ -1,5 +1,5 @@
 import { getPublicStore } from "@/lib/stores";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { isSupabaseConfigured, supabaseUrl } from "@/lib/supabase/env";
 import { glyphIcon, logoIcon } from "@/lib/push/store-icon";
 
 const SIZES = new Set([180, 192, 512]);
@@ -15,7 +15,8 @@ export async function GET(_req: Request, { params }: RouteContext<"/api/icone/lo
   const store = isSupabaseConfigured ? (await getPublicStore(slug))?.store : null;
   if (!store) return new Response("Não encontrado", { status: 404 });
 
-  if (store.logo_url) {
+  // Só busca o logo no armazenamento do próprio Supabase (nunca um endereço qualquer).
+  if (store.logo_url && store.logo_url.startsWith(`${supabaseUrl}/storage/v1/object/public/`)) {
     try {
       const res = await fetch(store.logo_url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) throw new Error(String(res.status));

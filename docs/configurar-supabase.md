@@ -14,7 +14,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    5. `20261124040000_motoboys.sql` (motoboys, entregas, site do motoboy e acerto)
    6. `20261124050000_demonstracao.sql` (modo demonstração)
    7. `20261124060000_melhorias.sql` (pedido agendado, CEP, clientes, desempenho, via da cozinha, Pixel e Analytics)
-   8. Os seguintes, em ordem, até `20261124130000_lojas_teste_pagantes.sql` (prazo de teste, validade, bloqueio, pagantes e apagar loja)
+   8. Os seguintes, em ordem, até `20261124150000_seguranca.sql` (reforço de segurança: dados de clientes, limite de pedidos e de leituras por foto)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:
@@ -102,3 +102,18 @@ continuam na lista de usuários; para limpar os antigos, ative a extensão **pg_
 select cron.schedule('limpar-visitantes', '0 4 * * *',
   $$delete from auth.users where is_anonymous and created_at < now() - interval '30 days'$$);
 ```
+
+## Segurança (recomendado antes de colocar no ar)
+
+No painel do Supabase:
+
+1. **Authentication > Attack Protection**: ligue **Prevent use of leaked passwords**
+   (recusa senhas que já vazaram na internet) e o **captcha**.
+2. **Authentication > Sign In / Providers > Email**: deixe **Confirm email** ligado e a senha
+   mínima em 8 caracteres.
+3. **Authentication > Rate Limits**: confira os limites de login e cadastro (os padrões já ajudam).
+4. **Advisors > Security Advisor**: rode e veja se aparece algum aviso vermelho.
+5. Nunca coloque a `SUPABASE_SECRET_KEY` em variável que comece com `NEXT_PUBLIC_`.
+
+Nas contas do Supabase, da Vercel, do GitHub, do Asaas e do Mercado Pago: ligue a
+**verificação em duas etapas** (código no celular).

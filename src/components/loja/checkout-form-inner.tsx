@@ -30,7 +30,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { type LoyaltyReward, rewardDiscount } from "@/lib/loyalty";
-import { rememberOrders } from "@/lib/my-orders";
+import { loadOrderTokens, rememberOrders } from "@/lib/my-orders";
 import { formatCep, lookupCep, matchZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
@@ -190,7 +190,7 @@ export default function CheckoutFormInner({
     let cancelled = false;
     const t = window.setTimeout(() => {
       lookedUp.current = phoneDigits;
-      lookupCustomer(store.id, phoneDigits)
+      lookupCustomer(store.id, phoneDigits, loadOrderTokens(store.slug))
         .then((found) => {
           if (cancelled || !found) return;
           setName(found.name);
@@ -212,7 +212,7 @@ export default function CheckoutFormInner({
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [phoneDigits, store.id]);
+  }, [phoneDigits, store.id, store.slug]);
 
   // Marketing da loja (Pixel/Analytics): uma vez ao abrir o checkout.
   const tracked = useRef(false);
