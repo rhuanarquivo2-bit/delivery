@@ -427,14 +427,25 @@ export function HoursForm({ hours }: { hours: StoreHour[] }) {
 }
 
 // ---------------------------------------------------------------------------
-type ZoneRow = { key: number; neighborhood: string; fee: string; active: boolean };
+type ZoneRow = { key: number; neighborhood: string; fee: string; active: boolean; aliases: string; showAliases: boolean };
 
 export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveZones, {});
   const nextKey = useRef(zones.length + 1);
+  const listed = zones.filter((z) => !z.catch_all);
+  const other = zones.find((z) => z.catch_all);
   const [rows, setRows] = useState<ZoneRow[]>(
-    zones.map((z, i) => ({ key: i, neighborhood: z.neighborhood, fee: centsToInput(z.fee_cents), active: z.active })),
+    listed.map((z, i) => ({
+      key: i,
+      neighborhood: z.neighborhood,
+      fee: centsToInput(z.fee_cents),
+      active: z.active,
+      aliases: (z.aliases ?? []).join(", "),
+      showAliases: (z.aliases ?? []).length > 0,
+    })),
   );
+  const [otherMode, setOtherMode] = useState<"none" | "fee">(other ? "fee" : "none");
+  const [otherFee, setOtherFee] = useState(other ? centsToInput(other.fee_cents) : "");
   const [bulk, setBulk] = useState("");
   const [focusKey, setFocusKey] = useState<number | null>(null);
 
@@ -443,31 +454,43 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
 
   const add = () => {
     const key = nextKey.current++;
-    setRows((r) => [...r, { key, neighborhood: "", fee: "", active: true }]);
+    setRows((r) => [...r, { key, neighborhood: "", fee: "", active: true, aliases: "", showAliases: false }]);
     setFocusKey(key);
   };
 
-  /** Cola uma lista "Bairro; 5,00" (uma por linha) de uma vez. */
+  /** Cola uma lista "Bairro; 5,00; outro nome, outro nome" (uma por linha) de uma vez. */
   const importBulk = () => {
     const parsed = bulk
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => {
-        const [name, fee = ""] = line.split(/[;\t]|\s-\s|\s+R\$\s*/);
-        return { key: nextKey.current++, neighborhood: name.trim(), fee: fee.replace(/R\$\s*/, "").trim(), active: true };
+        const [name, fee = "", aliases = ""] = line.split(/[;\t]|\s-\s|\s+R\$\s*/);
+        return {
+          key: nextKey.current++,
+          neighborhood: name.trim(),
+          fee: fee.replace(/R\$\s*/, "").trim(),
+          active: true,
+          aliases: aliases.trim(),
+          showAliases: Boolean(aliases.trim()),
+        };
       });
     setRows((r) => [...r, ...parsed]);
     setBulk("");
   };
 
-  const payload = JSON.stringify(rows.map(({ neighborhood, fee, active }) => ({ neighborhood, fee, active })));
+  const payload = JSON.stringify({
+    zones: rows.map(({ neighborhood, fee, active, aliases }) => ({ neighborhood, fee, active, aliases })),
+    other_fee: otherMode === "fee" ? otherFee : null,
+  });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Bairros e taxas de entrega</CardTitle>
-        <CardDescription>O cliente escolhe o bairro no pedido e a taxa é somada automaticamente.</CardDescription>
+        <CardDescription>
+          O cliente digita o CEP, o bairro aparece sozinho e a taxa é somada automaticamente.
+        </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
         <form action={action} className="grid gap-4">
@@ -475,7 +498,10 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
           <Feedback state={state} />
           {rows.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-              Nenhum bairro cadastrado. Sem bairros, o cliente não consegue escolher a entrega.
+              Nenhum bairro cadastrado.{" "}
+              {otherMode === "fee"
+                ? "Todos os endereços pagam a taxa de bairros fora da lista."
+                : "Sem bairros, o cliente não consegue pedir com entrega."}
             </p>
           ) : (
             <div className="grid gap-2">
@@ -486,45 +512,104 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
                 <span />
               </div>
               {rows.map((row) => (
-                <div key={row.key} className="grid grid-cols-[1fr_6.5rem_2.5rem] items-center gap-2 sm:grid-cols-[1fr_8rem_5rem_2.5rem]">
-                  <Input
-                    value={row.neighborhood}
-                    onChange={(e) => update(row.key, { neighborhood: e.target.value })}
-                    placeholder="Nome do bairro"
-                    autoFocus={row.key === focusKey}
-                    aria-label="Bairro"
-                    className="h-10"
-                  />
-                  <Input
-                    value={row.fee}
-                    onChange={(e) => update(row.key, { fee: e.target.value })}
-                    placeholder="0,00"
-                    inputMode="decimal"
-                    aria-label="Taxa"
-                    className="h-10"
-                  />
-                  <label className="hidden items-center gap-2 text-sm sm:flex">
-                    <input
-                      type="checkbox"
-                      checked={row.active}
-                      onChange={(e) => update(row.key, { active: e.target.checked })}
-                      className="size-4 accent-[var(--brand)]"
+                <div key={row.key} className="grid gap-1">
+                  <div className="grid grid-cols-[1fr_6.5rem_2.5rem] items-center gap-2 sm:grid-cols-[1fr_8rem_5rem_2.5rem]">
+                    <Input
+                      value={row.neighborhood}
+                      onChange={(e) => update(row.key, { neighborhood: e.target.value })}
+                      placeholder="Nome do bairro"
+                      autoFocus={row.key === focusKey}
+                      aria-label="Bairro"
+                      className="h-10"
                     />
-                    {row.active ? "Sim" : "Não"}
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remover ${row.neighborhood || "bairro"}`}
-                    onClick={() => setRows((r) => r.filter((x) => x.key !== row.key))}
-                  >
-                    <Trash2 className="text-muted-foreground" />
-                  </Button>
+                    <Input
+                      value={row.fee}
+                      onChange={(e) => update(row.key, { fee: e.target.value })}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      aria-label="Taxa"
+                      className="h-10"
+                    />
+                    <label className="hidden items-center gap-2 text-sm sm:flex">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(e) => update(row.key, { active: e.target.checked })}
+                        className="size-4 accent-[var(--brand)]"
+                      />
+                      {row.active ? "Sim" : "Não"}
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remover ${row.neighborhood || "bairro"}`}
+                      onClick={() => setRows((r) => r.filter((x) => x.key !== row.key))}
+                    >
+                      <Trash2 className="text-muted-foreground" />
+                    </Button>
+                  </div>
+                  {row.showAliases ? (
+                    <label className="flex items-center gap-2 pl-1 text-xs text-muted-foreground">
+                      <span className="shrink-0">Outros nomes:</span>
+                      <Input
+                        value={row.aliases}
+                        onChange={(e) => update(row.key, { aliases: e.target.value })}
+                        placeholder="separados por vírgula (ex.: Praia, Vila Praia)"
+                        aria-label={`Outros nomes de ${row.neighborhood || "bairro"}`}
+                        className="h-9 text-sm"
+                      />
+                    </label>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => update(row.key, { showAliases: true })}
+                      className="justify-self-start px-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      + outros nomes deste bairro
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           )}
+          <fieldset className="grid gap-2 rounded-xl border border-border px-4 py-3">
+            <legend className="px-1 text-sm font-medium">Bairro que não está na lista</legend>
+            <p className="text-xs text-muted-foreground">
+              Quando o CEP do cliente cai num bairro que não está acima (nem nos outros nomes).
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="other_mode"
+                checked={otherMode === "none"}
+                onChange={() => setOtherMode("none")}
+                className="size-4 accent-[var(--brand)]"
+              />
+              Não entregar (o cliente vê que a loja não atende o bairro)
+            </label>
+            <label className="flex flex-wrap items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="other_mode"
+                checked={otherMode === "fee"}
+                onChange={() => setOtherMode("fee")}
+                className="size-4 accent-[var(--brand)]"
+              />
+              Entregar com a taxa de R$
+              <Input
+                value={otherFee}
+                onChange={(e) => {
+                  setOtherFee(e.target.value);
+                  setOtherMode("fee");
+                }}
+                placeholder="0,00"
+                inputMode="decimal"
+                aria-label="Taxa para bairros fora da lista"
+                className="h-9 w-24"
+              />
+            </label>
+          </fieldset>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={add}>
               <Plus /> Adicionar bairro
@@ -538,7 +623,10 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
         <details className="rounded-xl bg-muted/60 px-4 py-3 text-sm">
           <summary className="cursor-pointer font-medium">Colar uma lista de bairros de uma vez</summary>
           <div className="mt-3 grid gap-2">
-            <p className="text-muted-foreground">Um bairro por linha, com a taxa depois de ponto e vírgula. Ex.: Centro; 5,00</p>
+            <p className="text-muted-foreground">
+              Um bairro por linha, com a taxa depois de ponto e vírgula. Outros nomes do bairro podem vir depois de
+              outro ponto e vírgula. Ex.: Centro; 5,00; Praia, Vila Praia
+            </p>
             <Textarea value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Centro; 5,00\nJardim América; 7,50"} />
             <div>
               <Button type="button" variant="secondary" size="sm" onClick={importBulk} disabled={!bulk.trim()}>

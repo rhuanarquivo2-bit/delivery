@@ -28,7 +28,7 @@ const ERRORS: Record<string, string> = {
   adicional_indisponivel: "Um dos adicionais escolhidos ficou indisponível.",
   adicionais_invalidos: "Confira os adicionais obrigatórios dos itens.",
   pedido_minimo: "O pedido ainda não atingiu o valor mínimo da loja.",
-  bairro_invalido: "Escolha um bairro de entrega.",
+  bairro_invalido: "A loja não entrega nesse bairro. Confira o CEP ou escolha retirar no local.",
   endereco_invalido: "Informe rua e número para a entrega.",
   troco_invalido: "O valor para troco precisa ser maior que o total do pedido.",
   cupom_invalido: "Cupom não encontrado. Confira o código.",
@@ -76,6 +76,7 @@ const schema = z.object({
     .default("")
     .transform((v) => v.replace(/\D/g, ""))
     .refine((v) => v === "" || v.length === 8, "CEP inválido. Confira os 8 números ou deixe em branco."),
+  address_district: z.string().max(80).default(""),
   delivery_zone_id: z.string().default(""),
   scheduled_for: z
     .string()
@@ -138,6 +139,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       address_complement: o.address_complement,
       address_reference: o.address_reference,
       address_zip: o.fulfillment === "delivery" ? o.address_zip || null : null,
+      address_district: o.fulfillment === "delivery" ? o.address_district.trim() : "",
       delivery_zone_id: o.fulfillment === "delivery" ? o.delivery_zone_id || null : null,
       scheduled_for: o.scheduled_for || null,
       payment_method: o.payment_method,

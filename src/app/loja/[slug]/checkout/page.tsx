@@ -40,7 +40,15 @@ export default async function CheckoutPage({ params }: PageProps<"/loja/[slug]/c
         }}
         open={isOpenNow(hours, store.open_override)}
         hours={hours}
-        zones={zones.filter((z) => z.active).map((z) => ({ id: z.id, name: z.neighborhood, fee: z.fee_cents }))}
+        zones={zones
+          .filter((z) => z.active)
+          .map((z) => ({
+            id: z.id,
+            name: z.neighborhood,
+            fee: z.fee_cents,
+            aliases: z.aliases ?? [],
+            catchAll: Boolean(z.catch_all),
+          }))}
         menu={menu}
       />
     </div>

@@ -257,43 +257,79 @@ export async function saveHours(_prev: FormState, formData: FormData): Promise<F
 // ---------------------------------------------------------------------------
 // Bairros e taxas de entrega
 // ---------------------------------------------------------------------------
-const zonesSchema = z
-  .array(
-    z.object({
-      neighborhood: z.string().trim().min(2, "Informe o bairro.").max(80),
-      fee: z.string(),
-      active: z.boolean(),
-    }),
-  )
-  .max(300, "Máximo de 300 bairros.");
+const zonesSchema = z.object({
+  zones: z
+    .array(
+      z.object({
+        neighborhood: z.string().trim().min(2, "Informe o bairro.").max(80),
+        fee: z.string(),
+        active: z.boolean(),
+        aliases: z.string().max(600, "Outros nomes: texto grande demais.").default(""),
+      }),
+    )
+    .max(300, "Máximo de 300 bairros."),
+  // bairro que não está na lista: null = não entrega; texto = taxa cobrada
+  other_fee: z.string().nullable().default(null),
+});
+
+/** Nome da linha especial "outros bairros" (o cliente vê o bairro dele, não este nome). */
+const OTHER_ZONE_NAME = "Outros bairros";
 
 export async function saveZones(_prev: FormState, formData: FormData): Promise<FormState> {
   const { store } = await requireMyStore();
   let input: unknown;
   try {
-    input = JSON.parse(String(formData.get("zones") ?? "[]"));
+    input = JSON.parse(String(formData.get("zones") ?? "{}"));
   } catch {
     return { message: "Dados inválidos." };
   }
+  // formato antigo (só a lista) ainda é aceito
+  if (Array.isArray(input)) input = { zones: input };
   const parsed = zonesSchema.safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return { message: `Linha ${Number(issue.path[0] ?? 0) + 1}: ${issue.message}` };
+    if (issue.path[0] === "zones" && typeof issue.path[1] === "number") {
+      return { message: `Linha ${issue.path[1] + 1}: ${issue.message}` };
+    }
+    return { message: issue.message };
   }
 
   const seen = new Set<string>();
   const rows = [];
-  for (const [i, zone] of parsed.data.entries()) {
+  for (const [i, zone] of parsed.data.zones.entries()) {
     const fee = zone.fee.trim() === "" ? 0 : parseBRLToCents(zone.fee);
     if (fee === null) return { message: `Linha ${i + 1}: taxa inválida.` };
     const key = zone.neighborhood.toLocaleLowerCase("pt-BR");
+    if (key === OTHER_ZONE_NAME.toLocaleLowerCase("pt-BR")) {
+      return { message: `"${OTHER_ZONE_NAME}" é reservado. Use a opção "Bairro que não está na lista" abaixo.` };
+    }
     if (seen.has(key)) return { message: `O bairro "${zone.neighborhood}" aparece duas vezes.` };
     seen.add(key);
+    const aliases = zone.aliases
+      .split(/[,;\n]/)
+      .map((a) => a.trim())
+      .filter((a) => a.length >= 2)
+      .slice(0, 20);
     rows.push({
       neighborhood: zone.neighborhood,
       fee_cents: fee,
       active: zone.active,
       sort_order: i,
+      aliases,
+      catch_all: false,
+    });
+  }
+
+  if (parsed.data.other_fee !== null) {
+    const fee = parsed.data.other_fee.trim() === "" ? 0 : parseBRLToCents(parsed.data.other_fee);
+    if (fee === null) return { message: "Taxa para bairros fora da lista inválida." };
+    rows.push({
+      neighborhood: OTHER_ZONE_NAME,
+      fee_cents: fee,
+      active: true,
+      sort_order: rows.length,
+      aliases: [],
+      catch_all: true,
     });
   }
 

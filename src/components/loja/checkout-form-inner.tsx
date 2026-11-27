@@ -31,7 +31,7 @@ import { Field } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { type LoyaltyReward, rewardDiscount } from "@/lib/loyalty";
 import { loadOrderTokens, rememberOrders } from "@/lib/my-orders";
-import { formatCep, lookupCep, matchZone } from "@/lib/cep";
+import { formatCep, lookupCep, resolveZone } from "@/lib/cep";
 import { formatCpf, isValidDocument } from "@/lib/document";
 import { changeDue, couponDiscount, couponLabel, unitPrice, type AppliedCoupon } from "@/lib/pricing";
 import { scheduleOptions } from "@/lib/schedule";
@@ -52,7 +52,8 @@ type StoreInfo = {
   accepts_scheduled: boolean;
   schedule_days_ahead: number;
 };
-type Zone = { id: string; name: string; fee: number };
+/** catchAll = "outros bairros": taxa da loja para quem não está na lista. */
+type Zone = { id: string; name: string; fee: number; aliases: string[]; catchAll: boolean };
 type Payment = "pix_online" | "pix_whatsapp" | "pix_delivery" | "card_delivery" | "cash";
 
 const CUSTOMER_KEY = "cliente";
@@ -65,6 +66,7 @@ type SavedCustomer = {
   complement?: string;
   reference?: string;
   zoneId?: string;
+  district?: string;
   cep?: string;
 };
 
@@ -95,7 +97,18 @@ export default function CheckoutFormInner({
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">(zones.length ? "delivery" : "pickup");
   const [name, setName] = useState(saved.name ?? "");
   const [phone, setPhone] = useState(formatPhone(saved.phone ?? ""));
-  const [zoneId, setZoneId] = useState(zones.some((z) => z.id === saved.zoneId) ? saved.zoneId! : "");
+  // Bairro: vem do CEP (ou o cliente digita) e o bairro de entrega/taxa sai sozinho dele.
+  const [district, setDistrict] = useState(
+    () => saved.district ?? zones.find((z) => z.id === saved.zoneId && !z.catchAll)?.name ?? "",
+  );
+  // Só quando o nome do bairro não bate com nenhum da loja: o cliente pode apontar o bairro da lista.
+  const [manualZoneId, setManualZoneId] = useState("");
+  const [showZoneList, setShowZoneList] = useState(false);
+  const changeDistrict = (value: string) => {
+    setDistrict(value);
+    setManualZoneId("");
+    setShowZoneList(false);
+  };
   const [street, setStreet] = useState(saved.street ?? "");
   const [number, setNumber] = useState(saved.number ?? "");
   const [complement, setComplement] = useState(saved.complement ?? "");
@@ -157,7 +170,10 @@ export default function CheckoutFormInner({
   });
   const unavailable = lines.filter((l) => !l.available);
   const subtotal = lines.filter((l) => l.available).reduce((n, l) => n + l.unitPriceCents * l.selection.quantity, 0);
-  const zone = zones.find((z) => z.id === zoneId);
+  const resolved = useMemo(() => resolveZone(zones, district), [zones, district]);
+  const manualZone = resolved.kind === "match" ? undefined : zones.find((z) => z.id === manualZoneId && !z.catchAll);
+  const zone = manualZone ?? resolved.zone ?? undefined;
+  const zoneId = zone?.id ?? "";
   const fee = fulfillment === "delivery" ? (zone?.fee ?? 0) : 0;
   const promoSavings = lines
     .filter((l) => l.available && l.fullUnitPriceCents !== null)
@@ -200,7 +216,16 @@ export default function CheckoutFormInner({
             setComplement(found.complement ?? "");
             setReference(found.reference ?? "");
             setCep(formatCep(found.cep ?? ""));
-            if (found.zoneId && zonesRef.current.some((z) => z.id === found.zoneId)) setZoneId(found.zoneId);
+            const lastZone = zonesRef.current.find((z) => z.id === found.zoneId && !z.catchAll);
+            if (lastZone) setDistrict(lastZone.name);
+            else if (found.cep) {
+              // último pedido foi de bairro fora da lista: o bairro de verdade vem do CEP
+              lookupCep(found.cep)
+                .then((c) => {
+                  if (!cancelled && c?.district) setDistrict(c.district);
+                })
+                .catch(() => {});
+            }
           }
           setWelcome({ name: found.name.split(" ")[0], orders: found.orders });
         })
@@ -234,19 +259,11 @@ export default function CheckoutFormInner({
       .then((found) => {
         if (!found) return setCepStatus({ tone: "error", text: "CEP não encontrado. Preencha o endereço abaixo." });
         if (found.street) setStreet(found.street);
-        const match = found.district ? matchZone(zones, found.district) : null;
-        if (match) {
-          setZoneId(match.id);
-          setCepStatus({ tone: "info", text: `${found.street ? `${found.street} · ` : ""}${match.name}` });
-        } else {
-          setCepStatus({
-            tone: "info",
-            text: found.district
-              ? `Bairro ${found.district}: escolha na lista o bairro de entrega mais próximo.`
-              : "Escolha o bairro de entrega na lista.",
-          });
-        }
-        if (found.street) window.setTimeout(() => document.getElementById("number")?.focus(), 0);
+        if (found.district) changeDistrict(found.district);
+        if (found.city) setCepStatus({ tone: "info", text: `${found.city}${found.state ? ` - ${found.state}` : ""}` });
+        // CEP de rua: vai direto para o número. CEP geral da cidade: falta a rua.
+        const next = found.street ? "number" : found.district ? "street" : "district";
+        window.setTimeout(() => document.getElementById(next)?.focus(), 0);
       })
       .catch((err: unknown) => {
         if ((err as Error)?.name !== "AbortError") {
@@ -257,7 +274,6 @@ export default function CheckoutFormInner({
         if (cepAbort.current === controller) setCepLoading(false);
       });
   };
-
   if (cart.lines.length === 0) {
     return (
       <main className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center gap-4 px-6 py-20 text-center">
@@ -300,7 +316,10 @@ export default function CheckoutFormInner({
     if (unavailable.length) return setError("Remova os itens indisponíveis do carrinho.");
     if (!payment) return setError("Escolha a forma de pagamento.");
     if (needsCpf && !isValidDocument(cpf)) return setError("Informe um CPF válido para pagar com Pix.");
-    if (fulfillment === "delivery" && !zoneId) return setError("Escolha o bairro de entrega.");
+    if (fulfillment === "delivery" && !district.trim()) return setError("Informe o CEP ou o bairro da entrega.");
+    if (fulfillment === "delivery" && !zoneId) {
+      return setError(`A ${store.name} não entrega no bairro ${district.trim()}. Escolha retirar no local.`);
+    }
     if (scheduling && !slot) return setError("Escolha o dia e o horário do agendamento.");
     if (!scheduling && !open) return setError("A loja está fechada agora. Agende o pedido para outro horário.");
     if (needsChange && (changeCents === null || changeCents <= total)) {
@@ -309,7 +328,17 @@ export default function CheckoutFormInner({
 
     window.localStorage.setItem(
       CUSTOMER_KEY,
-      JSON.stringify({ name, phone, street, number, complement, reference, zoneId, cep } satisfies SavedCustomer),
+      JSON.stringify({
+        name,
+        phone,
+        street,
+        number,
+        complement,
+        reference,
+        zoneId,
+        district,
+        cep,
+      } satisfies SavedCustomer),
     );
 
     startTransition(async () => {
@@ -323,6 +352,7 @@ export default function CheckoutFormInner({
         address_complement: complement,
         address_reference: reference,
         address_zip: cep,
+        address_district: district,
         delivery_zone_id: zoneId,
         scheduled_for: scheduling && slot ? slot.value : "",
         payment_method: payment,
@@ -556,7 +586,7 @@ export default function CheckoutFormInner({
         {fulfillment === "delivery" ? (
           <Block title="Endereço de entrega">
             <div className="grid gap-4">
-              <Field label="CEP (opcional)" htmlFor="cep" hint="Preenche a rua e o bairro sozinho.">
+              <Field label="CEP" htmlFor="cep" hint="Preenche rua, bairro e a taxa de entrega sozinho.">
                 <div className="relative max-w-48">
                   <Input
                     id="cep"
@@ -580,22 +610,26 @@ export default function CheckoutFormInner({
                   {cepStatus.text}
                 </p>
               ) : null}
-              <Field label="Bairro" htmlFor="zone">
-                <select
-                  id="zone"
+              <Field label="Bairro" htmlFor="district">
+                <Input
+                  id="district"
+                  autoComplete="address-level3"
                   required
-                  value={zoneId}
-                  onChange={(e) => setZoneId(e.target.value)}
-                  className="h-11 rounded-xl border border-border bg-background px-3 text-sm"
-                >
-                  <option value="">Selecione o bairro</option>
-                  {zones.map((z) => (
-                    <option key={z.id} value={z.id}>
-                      {z.name} · {z.fee ? formatBRL(z.fee) : "entrega grátis"}
-                    </option>
-                  ))}
-                </select>
+                  value={district}
+                  onChange={(e) => changeDistrict(e.target.value)}
+                />
               </Field>
+              <DeliveryFeeNote
+                storeName={store.name}
+                district={district}
+                zone={zone}
+                kind={manualZone ? "manual" : resolved.kind}
+                listedZones={zones.filter((z) => !z.catchAll)}
+                showZoneList={showZoneList}
+                onShowZoneList={() => setShowZoneList(true)}
+                onPickZone={setManualZoneId}
+                onPickup={() => setFulfillment("pickup")}
+              />
               <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
                 <Field label="Rua" htmlFor="street">
                   <Input
@@ -802,7 +836,10 @@ export default function CheckoutFormInner({
           <dl className="grid gap-1.5 text-sm">
             <Row label="Subtotal" value={formatBRL(subtotal)} />
             {fulfillment === "delivery" ? (
-              <Row label="Taxa de entrega" value={zone ? (fee ? formatBRL(fee) : "Grátis") : "Escolha o bairro"} />
+              <Row
+                label="Taxa de entrega"
+                value={zone ? (fee ? formatBRL(fee) : "Grátis") : district.trim() ? "Bairro não atendido" : "Informe o CEP"}
+              />
             ) : null}
             {discount ? <Row label={`Cupom ${couponUsable!.code}`} value={`- ${formatBRL(discount)}`} tone="success" /> : null}
             {reward ? (
@@ -915,6 +952,85 @@ function Row({ label, value, strong, tone }: { label: string; value: string; str
     >
       <dt className={cn(!strong && !tone && "text-muted-foreground")}>{label}</dt>
       <dd>{value}</dd>
+    </div>
+  );
+}
+
+/** Abaixo do bairro: qual taxa vale, ou por que não dá para entregar. */
+function DeliveryFeeNote({
+  storeName,
+  district,
+  zone,
+  kind,
+  listedZones,
+  showZoneList,
+  onShowZoneList,
+  onPickZone,
+  onPickup,
+}: {
+  storeName: string;
+  district: string;
+  zone: Zone | undefined;
+  kind: "match" | "fallback" | "manual" | "none";
+  listedZones: Zone[];
+  showZoneList: boolean;
+  onShowZoneList: () => void;
+  onPickZone: (id: string) => void;
+  onPickup: () => void;
+}) {
+  const name = district.trim();
+  if (!name) return null;
+  const feeText = zone ? (zone.fee ? formatBRL(zone.fee) : "grátis") : "";
+  const sameName = zone && kind !== "fallback" && zone.name.localeCompare(name, "pt-BR", { sensitivity: "base" }) === 0;
+
+  if (zone) {
+    return (
+      <p
+        className="-mt-2 flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+        data-testid="delivery-fee-note"
+      >
+        <Bike className="mt-0.5 size-4 shrink-0" />
+        <span>
+          Entrega {kind === "fallback" ? "para" : "no bairro"}{" "}
+          <strong>{kind === "fallback" || sameName ? name : zone.name}</strong>
+          {kind !== "fallback" && !sameName ? ` (${name})` : ""}: <strong>{feeText}</strong>
+        </span>
+      </p>
+    );
+  }
+
+  return (
+    <div className="-mt-2 grid gap-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900" data-testid="delivery-fee-note">
+      <p>
+        A {storeName} não entrega no bairro <strong>{name}</strong>.
+      </p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <button type="button" onClick={onPickup} className="font-medium underline underline-offset-2">
+          Retirar no local
+        </button>
+        {listedZones.length && !showZoneList ? (
+          <button type="button" onClick={onShowZoneList} className="underline underline-offset-2">
+            Meu bairro tem outro nome
+          </button>
+        ) : null}
+      </div>
+      {showZoneList ? (
+        <select
+          aria-label="Bairro de entrega da loja"
+          defaultValue=""
+          onChange={(e) => onPickZone(e.target.value)}
+          className="h-11 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+        >
+          <option value="" disabled>
+            Escolha o bairro na lista da loja
+          </option>
+          {listedZones.map((z) => (
+            <option key={z.id} value={z.id}>
+              {z.name} · {z.fee ? formatBRL(z.fee) : "entrega grátis"}
+            </option>
+          ))}
+        </select>
+      ) : null}
     </div>
   );
 }
