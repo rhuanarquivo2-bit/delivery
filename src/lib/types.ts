@@ -64,6 +64,10 @@ export type DeliveryZone = {
   fee_cents: number;
   active: boolean;
   sort_order: number;
+  /** Outros nomes do mesmo bairro (o nome que vem do CEP pode ser diferente do que a loja usa). */
+  aliases: string[];
+  /** Linha especial "outros bairros": taxa para quem não está na lista (no máximo uma por loja). */
+  catch_all: boolean;
 };
 
 export type StoreRole = "owner" | "staff";
