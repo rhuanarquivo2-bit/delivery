@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { ImageUp, Plus, Trash2 } from "lucide-react";
 import {
   saveHours,
@@ -18,7 +18,8 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/ui/label";
 import { shortTime, WEEKDAYS } from "@/lib/hours";
 import type { DeliveryZone, Store, StoreHour } from "@/lib/types";
-import { cn, formatBRL } from "@/lib/utils";
+import { feeInputFor, NOT_SERVED_LABEL, parseZoneFee } from "@/lib/zones";
+import { cn } from "@/lib/utils";
 import { keepValuesOnSubmit } from "@/lib/use-keep-values-submit";
 import { ColorPicker } from "./color-picker";
 
@@ -429,6 +430,11 @@ export function HoursForm({ hours }: { hours: StoreHour[] }) {
 // ---------------------------------------------------------------------------
 type ZoneRow = { key: number; neighborhood: string; fee: string; active: boolean; aliases: string; showAliases: boolean };
 
+function isNotServed(fee: string) {
+  const f = parseZoneFee(fee);
+  return f.ok && !f.served;
+}
+
 export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveZones, {});
   const nextKey = useRef(zones.length + 1);
@@ -438,8 +444,8 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
     listed.map((z, i) => ({
       key: i,
       neighborhood: z.neighborhood,
-      fee: centsToInput(z.fee_cents),
-      active: z.active,
+      fee: feeInputFor(z),
+      active: true,
       aliases: (z.aliases ?? []).join(", "),
       showAliases: (z.aliases ?? []).length > 0,
     })),
@@ -448,6 +454,7 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
   const [otherFee, setOtherFee] = useState(other ? centsToInput(other.fee_cents) : "");
   const [bulk, setBulk] = useState("");
   const [focusKey, setFocusKey] = useState<number | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
 
   const update = (key: number, patch: Partial<ZoneRow>) =>
     setRows((r) => r.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -484,6 +491,62 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
     other_fee: otherMode === "fee" ? otherFee : null,
   });
 
+  // Confere cada linha antes de salvar: uma taxa errada fazia o salvamento inteiro falhar
+  // com o aviso lá no topo, longe do bairro (e o lojista achava que tinha salvo).
+  const seenNames = new Map<string, number>();
+  const problems = new Map<number, string>();
+  for (const row of rows) {
+    const name = row.neighborhood.trim();
+    if (name.length < 2) problems.set(row.key, "Informe o nome do bairro.");
+    else if (!parseZoneFee(row.fee).ok) {
+      problems.set(row.key, `Taxa inválida. Use um valor (ex.: 5,00), deixe vazio (grátis) ou "${NOT_SERVED_LABEL}".`);
+    } else {
+      const key = name.toLocaleLowerCase("pt-BR");
+      if (seenNames.has(key)) problems.set(row.key, "Esse bairro aparece duas vezes.");
+      seenNames.set(key, row.key);
+    }
+  }
+  const otherParsed = parseZoneFee(otherFee);
+  const otherFeeOk = otherMode === "none" || (otherParsed.ok && otherParsed.served);
+  const notServed = rows.filter((r) => isNotServed(r.fee)).length;
+
+  // O que está salvo no banco x o que está na tela: avisa enquanto houver mudança sem salvar.
+  const [savedPayload, setSavedPayload] = useState(payload);
+  const [submitted, setSubmitted] = useState(payload);
+  const [lastState, setLastState] = useState(state);
+  if (state !== lastState) {
+    setLastState(state);
+    if (state.ok) setSavedPayload(submitted);
+  }
+  const dirty = payload !== savedPayload;
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    setSubmitted(payload);
+    setClientError(null);
+    const first = rows.find((r) => problems.has(r.key));
+    if (first) {
+      e.preventDefault();
+      setClientError(
+        `Nada foi salvo. Corrija ${problems.size === 1 ? "a linha marcada" : `as ${problems.size} linhas marcadas`} em vermelho (primeira: "${first.neighborhood || "sem nome"}").`,
+      );
+      document.getElementById(`zone-${first.key}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+    if (!otherFeeOk) {
+      e.preventDefault();
+      setClientError('Nada foi salvo. Informe a taxa de "Bairro que não está na lista" (ex.: 8,00).');
+      return;
+    }
+  };
+  // aviso do último salvamento só enquanto a tela é aquela que foi enviada
+  const status = payload !== submitted ? null : clientError ? { message: clientError } : state;
+
   return (
     <Card>
       <CardHeader>
@@ -493,9 +556,12 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        <form action={action} className="grid gap-4">
+        <form action={action} onSubmit={onSubmit} className="grid gap-4">
           <input type="hidden" name="zones" value={payload} />
-          <Feedback state={state} />
+          <p className="text-xs text-muted-foreground">
+            Taxa vazia = entrega grátis. Para um bairro que a loja não atende, escreva <strong>{NOT_SERVED_LABEL}</strong>{" "}
+            na taxa.
+          </p>
           {rows.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
               Nenhum bairro cadastrado.{" "}
@@ -505,40 +571,35 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
             </p>
           ) : (
             <div className="grid gap-2">
-              <div className="hidden grid-cols-[1fr_8rem_5rem_2.5rem] gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid">
+              <div className="hidden grid-cols-[1fr_9rem_2.5rem] gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid">
                 <span>Bairro</span>
                 <span>Taxa (R$)</span>
-                <span>Ativo</span>
                 <span />
               </div>
               {rows.map((row) => (
-                <div key={row.key} className="grid gap-1">
-                  <div className="grid grid-cols-[1fr_6.5rem_2.5rem] items-center gap-2 sm:grid-cols-[1fr_8rem_5rem_2.5rem]">
+                <div key={row.key} id={`zone-${row.key}`} className="grid scroll-mt-24 gap-1">
+                  <div className="grid grid-cols-[1fr_7.5rem_2.5rem] items-center gap-2 sm:grid-cols-[1fr_9rem_2.5rem]">
                     <Input
                       value={row.neighborhood}
                       onChange={(e) => update(row.key, { neighborhood: e.target.value })}
                       placeholder="Nome do bairro"
                       autoFocus={row.key === focusKey}
                       aria-label="Bairro"
-                      className="h-10"
+                      aria-invalid={problems.has(row.key) && row.neighborhood.trim().length < 2}
+                      className={cn("h-10", problems.has(row.key) && row.neighborhood.trim().length < 2 && "border-red-500")}
                     />
                     <Input
                       value={row.fee}
                       onChange={(e) => update(row.key, { fee: e.target.value })}
                       placeholder="0,00"
-                      inputMode="decimal"
-                      aria-label="Taxa"
-                      className="h-10"
+                      aria-label={`Taxa de ${row.neighborhood || "bairro"}`}
+                      aria-invalid={!parseZoneFee(row.fee).ok}
+                      className={cn(
+                        "h-10",
+                        !parseZoneFee(row.fee).ok && "border-red-500",
+                        isNotServed(row.fee) && "text-muted-foreground",
+                      )}
                     />
-                    <label className="hidden items-center gap-2 text-sm sm:flex">
-                      <input
-                        type="checkbox"
-                        checked={row.active}
-                        onChange={(e) => update(row.key, { active: e.target.checked })}
-                        className="size-4 accent-[var(--brand)]"
-                      />
-                      {row.active ? "Sim" : "Não"}
-                    </label>
                     <Button
                       type="button"
                       variant="ghost"
@@ -549,6 +610,9 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
                       <Trash2 className="text-muted-foreground" />
                     </Button>
                   </div>
+                  {problems.has(row.key) ? (
+                    <p className="px-1 text-xs font-medium text-red-600">{problems.get(row.key)}</p>
+                  ) : null}
                   {row.showAliases ? (
                     <label className="flex items-center gap-2 pl-1 text-xs text-muted-foreground">
                       <span className="shrink-0">Outros nomes:</span>
@@ -610,13 +674,22 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
               />
             </label>
           </fieldset>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={add}>
-              <Plus /> Adicionar bairro
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Salvando..." : "Salvar bairros"}
-            </Button>
+          <Button type="button" variant="outline" onClick={add} className="justify-self-start">
+            <Plus /> Adicionar bairro
+          </Button>
+          {/* Fica sempre visível no rodapé: com muitos bairros o aviso do salvamento aparecia longe. */}
+          <div className="sticky bottom-0 z-10 -mx-4 grid gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+            {status ? <Feedback state={status} /> : null}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={pending}>
+                {pending ? "Salvando..." : "Salvar bairros"}
+              </Button>
+              <span className={cn("text-sm", dirty ? "font-medium text-amber-700" : "text-muted-foreground")}>
+                {dirty
+                  ? "Alterações não salvas"
+                  : `${rows.length} bairro(s)${notServed ? `, ${notServed} sem entrega` : ""}. Tudo salvo.`}
+              </span>
+            </div>
           </div>
         </form>
 
@@ -627,7 +700,11 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
               Um bairro por linha, com a taxa depois de ponto e vírgula. Outros nomes do bairro podem vir depois de
               outro ponto e vírgula. Ex.: Centro; 5,00; Praia, Vila Praia
             </p>
-            <Textarea value={bulk} onChange={(e) => setBulk(e.target.value)} placeholder={"Centro; 5,00\nJardim América; 7,50"} />
+            <Textarea
+              value={bulk}
+              onChange={(e) => setBulk(e.target.value)}
+              placeholder={"Centro; 5,00\nJardim América; 7,50\nPedreira; não atende"}
+            />
             <div>
               <Button type="button" variant="secondary" size="sm" onClick={importBulk} disabled={!bulk.trim()}>
                 Adicionar à lista
@@ -635,12 +712,6 @@ export function ZonesForm({ zones }: { zones: DeliveryZone[] }) {
             </div>
           </div>
         </details>
-        {rows.length ? (
-          <p className="text-xs text-muted-foreground">
-            {rows.length} bairro(s). Lembre de salvar depois de alterar.
-            {rows.some((r) => r.fee) ? "" : ` Taxa vazia significa entrega grátis (${formatBRL(0)}).`}
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );

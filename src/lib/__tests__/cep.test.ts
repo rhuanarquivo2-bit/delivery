@@ -64,3 +64,21 @@ describe("resolveZone", () => {
     expect(resolveZone([zones[0]], "Praia")).toMatchObject({ kind: "none", zone: null });
   });
 });
+
+describe("resolveZone com bairro que a loja não atende", () => {
+  const zones = [
+    { name: "Centro" },
+    { name: "Pedreira", blocked: true },
+    { name: "Outros bairros", catchAll: true },
+  ];
+  it("não cobra 'outros bairros' de quem a loja disse que não atende", () => {
+    expect(resolveZone(zones, "pedreira")).toMatchObject({ kind: "blocked", zone: null });
+    expect(resolveZone(zones, "Praia")).toMatchObject({ kind: "fallback" });
+  });
+  it("Praia cadastrado com taxa é encontrado pelo nome do CEP", () => {
+    const loja = [{ name: "Penha" }, { name: "Praia" }, { name: "Pará" }, { name: "Panorama" }];
+    expect(resolveZone(loja, "Praia")).toMatchObject({ kind: "match", zone: { name: "Praia" } });
+    expect(resolveZone(loja, " PRAIA ")).toMatchObject({ kind: "match", zone: { name: "Praia" } });
+    expect(resolveZone(loja, "Para")).toMatchObject({ kind: "match", zone: { name: "Pará" } });
+  });
+});
