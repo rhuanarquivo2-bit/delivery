@@ -15,6 +15,7 @@ Leva uns 10 minutos e o plano gratuito é suficiente para começar.
    6. `20261124050000_demonstracao.sql` (modo demonstração)
    7. `20261124060000_melhorias.sql` (pedido agendado, CEP, clientes, desempenho, via da cozinha, Pixel e Analytics)
    8. Os seguintes, em ordem, até `20261124150000_seguranca.sql` (reforço de segurança: dados de clientes, limite de pedidos e de leituras por foto)
+   9. `20261124160000_cozinha.sql` (tela da cozinha: tempo alvo, itens prontos e link da cozinha sem login)
 
    Isso cria as tabelas, as regras de acesso e o espaço para as imagens.
 3. Em **Authentication > URL Configuration**:

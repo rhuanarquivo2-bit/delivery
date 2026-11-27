@@ -8,7 +8,7 @@ export async function proxy(request: NextRequest) {
   // pizzariadojoao.suamarca.com.br/qualquer-coisa -> /loja/pizzariadojoao/qualquer-coisa
   const slug = storeSlugFromHost(request.headers.get("host"));
   let response = NextResponse.next({ request });
-  if (slug && !/^\/(loja|api|entregador)\//.test(pathname) && pathname !== "/sw.js") {
+  if (slug && !/^\/(loja|api|entregador)\//.test(pathname) && !/^\/cozinha(\/|$)/.test(pathname) && pathname !== "/sw.js") {
     const url = request.nextUrl.clone();
     url.pathname = `/loja/${slug}${pathname === "/" ? "" : pathname}`;
     response = NextResponse.rewrite(url, { request });
@@ -16,7 +16,13 @@ export async function proxy(request: NextRequest) {
 
   const session = await updateSession(request, response);
 
-  if ((pathname.startsWith("/painel") || pathname.startsWith("/imprimir") || pathname.startsWith("/admin")) && !session.userId) {
+  // /cozinha pede login; /cozinha/<link> é o link da cozinha (sem login).
+  const needsLogin =
+    pathname.startsWith("/painel") ||
+    pathname.startsWith("/imprimir") ||
+    pathname.startsWith("/admin") ||
+    pathname === "/cozinha";
+  if (needsLogin && !session.userId) {
     const url = request.nextUrl.clone();
     url.pathname = "/entrar";
     url.search = `?voltar=${encodeURIComponent(pathname + search)}`;
