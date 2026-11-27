@@ -15,7 +15,8 @@ const credentials = z.object({
 
 function safeRedirectPath(value: FormDataEntryValue | null) {
   const path = typeof value === "string" ? value : "";
-  return path.startsWith("/painel") ? path : "/painel";
+  // só caminhos internos conhecidos (nunca outro site)
+  return path.startsWith("/painel") || path === "/cozinha" ? path : "/painel";
 }
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {

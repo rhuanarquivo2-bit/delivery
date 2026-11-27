@@ -42,3 +42,50 @@ body {
     background: white;
   }
 }
+
+/* Tela da cozinha (KDS): tema escuro e alertas piscando. */
+.kds {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --border: #3f3f46;
+  color-scheme: dark;
+}
+
+@keyframes kds-late {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(239 68 68 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgb(239 68 68 / 0.5);
+  }
+}
+
+@keyframes kds-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(52 211 153 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgb(52 211 153 / 0.45);
+  }
+}
+
+.kds-late {
+  animation: kds-late 1.4s ease-in-out infinite;
+}
+
+.kds-glow {
+  animation: kds-glow 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kds-late,
+  .kds-glow {
+    animation: none;
+  }
+}

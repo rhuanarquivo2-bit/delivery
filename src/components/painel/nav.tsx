@@ -6,6 +6,7 @@ import {
   BadgePercent,
   Gift,
   Bike,
+  ChefHat,
   ClipboardList,
   Home,
   LayoutGrid,
@@ -23,6 +24,7 @@ type Item = { href: string; label: string; icon: LucideIcon; soon?: boolean };
 const ITEMS: Item[] = [
   { href: "/painel", label: "Início", icon: Home },
   { href: "/painel/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/cozinha", label: "Cozinha (KDS)", icon: ChefHat },
   { href: "/painel/cardapio", label: "Cardápio", icon: LayoutGrid },
   { href: "/painel/promocoes", label: "Promoções", icon: BadgePercent },
   { href: "/painel/cupons", label: "Cupons", icon: Ticket },

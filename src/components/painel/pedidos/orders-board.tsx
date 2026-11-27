@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   Bell,
   BellOff,
   Bike,
   CalendarClock,
   CheckCircle2,
+  ChefHat,
   Clock,
   MessageCircle,
   Printer,
@@ -194,17 +196,25 @@ export function OrdersBoard({
             {live === "on" ? "Recebendo pedidos ao vivo" : live === "off" ? "Conexão perdida, tentando de novo" : "Conectando"}
           </p>
         </div>
-        <Button
-          variant={soundOn ? "outline" : "default"}
-          onClick={() => {
-            unlock();
-            const next = !soundOn;
-            setSoundOn(next);
-          }}
-        >
-          {soundOn ? <Bell /> : <BellOff />}
-          {soundOn ? "Som ligado" : "Ativar som de novo pedido"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/cozinha"
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted"
+          >
+            <ChefHat className="size-4" /> Tela da cozinha
+          </Link>
+          <Button
+            variant={soundOn ? "outline" : "default"}
+            onClick={() => {
+              unlock();
+              const next = !soundOn;
+              setSoundOn(next);
+            }}
+          >
+            {soundOn ? <Bell /> : <BellOff />}
+            {soundOn ? "Som ligado" : "Ativar som de novo pedido"}
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto lg:hidden">

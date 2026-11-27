@@ -36,6 +36,7 @@ src/
       desempenho/         horários de pico, tempos e bairros
       cardapio/           categorias, tamanhos, adicionais e produtos
       loja/               dados, logo, horários e bairros/taxas
+    cozinha/              tela da cozinha (KDS) com login; cozinha/<link> sem login
     imprimir/pedido/[id]  comprovante para impressora térmica 80 mm
     loja/[slug]/          site público da loja (cardápio e carrinho)
       checkout/           finalizar pedido (pagamento na entrega, troco)
@@ -154,6 +155,29 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
   InitiateCheckout e Purchase (`src/components/loja/store-tracking.tsx`). O formato dos IDs é
   conferido no banco, então nunca vira código.
 
+## Tela da cozinha (KDS)
+
+- `/cozinha` (com login, botão "Tela da cozinha" no painel de pedidos e item "Cozinha (KDS)" no menu):
+  tela escura para tablet ou TV, com colunas **Novos**, **Em preparo** e **Prontos**. Cada pedido mostra
+  número, entrega ou retirada, itens grandes (sabores "½ + ½", adicionais), observações em amarelo,
+  cronômetro e barra de tempo. Fica amarelo no último quarto do tempo e vermelho piscando quando atrasa.
+- **Tempo alvo da cozinha** (`stores.kitchen_target_minutes`, padrão 20 min): ajustado na própria tela.
+  Pedido agendado conta pelo horário marcado (entrega: descontando o caminho, que é o tempo do site
+  menos o tempo da cozinha) e fica na faixa "Agendados" até 5 min antes da hora de começar.
+- Botões: "Aceitar e preparar" (novo → em preparo), "Pronto" (em preparo → pronto) e "Voltar para o
+  preparo" (dois toques). Tocar num item risca ele em todas as telas (`order_items.kitchen_done_at`).
+  O cliente recebe a notificação de status igual ao painel.
+- Pedido cancelado aparece numa faixa vermelha com som grave até a cozinha tocar em "Entendi".
+- Som de pedido novo (repete enquanto houver pedido esperando), tela sempre acesa (Wake Lock), tela cheia
+  e relógio do servidor (tablet com hora errada não atrapalha). Ajustes deste aparelho: a cozinha aceita
+  os pedidos ou só vê depois que o caixa aceitar, coluna Prontos, letra grande e som.
+- **Link da cozinha** (`kitchen_links`): `/cozinha/<link>` abre a tela sem login, para o tablet da
+  cozinha não ter a senha do painel. Só mostra o necessário (sem valores, telefone ou endereço) e só
+  aceita, marca pronto, volta e risca itens. A loja troca ou desliga o link na tela de ajustes (com QR Code).
+- Tudo passa por `kitchen_board`, `kitchen_update` e `kitchen_item_done`, que conferem a loja (equipe
+  logada ou link) e se o acesso da loja está em dia. Com login a tela recebe mudanças ao vivo
+  (Realtime em `orders` e `order_items`); pelo link confere a cada 5 segundos.
+
 ## Fases
 
 1. **Fundação**: login, cadastro da loja, horários, bairros e taxas, site base.
@@ -169,3 +193,5 @@ de `ANTHROPIC_API_KEY` (ver `docs/configurar-supabase.md`).
    simulado e motoboys; página de vendas com telas reais.
 7. **Melhorias**: pedido agendado, CEP no checkout, janela de promoções, via da cozinha,
    clientes, desempenho, Facebook Pixel e Google Analytics.
+8. **Tela da cozinha (KDS)**: pedidos ao vivo para tablet/TV, cronômetro e atraso, itens riscados,
+   som, cancelados em destaque e link da cozinha sem login.
