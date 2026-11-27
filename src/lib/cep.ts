@@ -124,16 +124,17 @@ export function matchZone<T extends ZoneLike>(zones: T[], district: string): T |
 /**
  * Qual bairro de entrega vale para o endereço: o que combina com o nome do bairro; senão,
  * "outros bairros" (se a loja cobra uma taxa para quem não está na lista); senão, nenhum.
+ * Bairro que a loja marcou como "não atende" (blocked) nunca cai em "outros bairros".
  */
-export function resolveZone<T extends ZoneLike & { catchAll?: boolean }>(zones: T[], district: string) {
+export function resolveZone<T extends ZoneLike & { catchAll?: boolean; blocked?: boolean }>(zones: T[], district: string) {
   const listed = zones.filter((z) => !z.catchAll);
   const match = matchZone(listed, district);
+  if (match?.blocked) return { zone: null, kind: "blocked" as const };
   if (match) return { zone: match, kind: "match" as const };
-  const fallback = zones.find((z) => z.catchAll);
+  const fallback = zones.find((z) => z.catchAll && !z.blocked);
   if (fallback && placeKey(district)) return { zone: fallback, kind: "fallback" as const };
   return { zone: null, kind: "none" as const };
 }
-
 export type CepAddress = { street: string; district: string; city: string; state: string };
 
 /** Consulta o CEP no ViaCEP (gratuito, direto do navegador do cliente). null = não encontrado. */

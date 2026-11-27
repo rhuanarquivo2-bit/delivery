@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getMyStore, requireMyStore, requireUser } from "@/lib/stores";
+import { getMyStore, requireMyStore, requireUser, zonesUpgradeInstalled } from "@/lib/stores";
 import { createClient } from "@/lib/supabase/server";
+import { parseZoneFee, NOT_SERVED_LABEL } from "@/lib/zones";
 import { parseBRLToCents, SLUG_PATTERN, slugify } from "@/lib/utils";
 
 export type FormState = { ok?: boolean; message?: string; errors?: Record<string, string> };
@@ -262,8 +263,8 @@ const zonesSchema = z.object({
     .array(
       z.object({
         neighborhood: z.string().trim().min(2, "Informe o bairro.").max(80),
-        fee: z.string(),
-        active: z.boolean(),
+        fee: z.string().max(40),
+        active: z.boolean().default(true),
         aliases: z.string().max(600, "Outros nomes: texto grande demais.").default(""),
       }),
     )
@@ -297,8 +298,12 @@ export async function saveZones(_prev: FormState, formData: FormData): Promise<F
   const seen = new Set<string>();
   const rows = [];
   for (const [i, zone] of parsed.data.zones.entries()) {
-    const fee = zone.fee.trim() === "" ? 0 : parseBRLToCents(zone.fee);
-    if (fee === null) return { message: `Linha ${i + 1}: taxa inválida.` };
+    const fee = parseZoneFee(zone.fee);
+    if (!fee.ok) {
+      return {
+        message: `Nada foi salvo: a taxa do bairro "${zone.neighborhood}" (linha ${i + 1}) está como "${zone.fee.trim()}". Use um valor (ex.: 5,00), deixe vazio para entrega grátis ou escreva "${NOT_SERVED_LABEL}".`,
+      };
+    }
     const key = zone.neighborhood.toLocaleLowerCase("pt-BR");
     if (key === OTHER_ZONE_NAME.toLocaleLowerCase("pt-BR")) {
       return { message: `"${OTHER_ZONE_NAME}" é reservado. Use a opção "Bairro que não está na lista" abaixo.` };
@@ -312,8 +317,9 @@ export async function saveZones(_prev: FormState, formData: FormData): Promise<F
       .slice(0, 20);
     rows.push({
       neighborhood: zone.neighborhood,
-      fee_cents: fee,
-      active: zone.active,
+      fee_cents: fee.served ? fee.cents : 0,
+      // "não atende" = bairro desligado: o checkout mostra que a loja não entrega lá
+      active: fee.served && zone.active,
       sort_order: i,
       aliases,
       catch_all: false,
@@ -321,8 +327,11 @@ export async function saveZones(_prev: FormState, formData: FormData): Promise<F
   }
 
   if (parsed.data.other_fee !== null) {
-    const fee = parsed.data.other_fee.trim() === "" ? 0 : parseBRLToCents(parsed.data.other_fee);
-    if (fee === null) return { message: "Taxa para bairros fora da lista inválida." };
+    const parsedFee = parseZoneFee(parsed.data.other_fee);
+    if (!parsedFee.ok || !parsedFee.served) {
+      return { message: 'Nada foi salvo: a taxa de "Bairro que não está na lista" precisa ser um valor (ex.: 8,00).' };
+    }
+    const fee = parsedFee.cents;
     rows.push({
       neighborhood: OTHER_ZONE_NAME,
       fee_cents: fee,
@@ -333,11 +342,20 @@ export async function saveZones(_prev: FormState, formData: FormData): Promise<F
     });
   }
 
+  if (!(await zonesUpgradeInstalled())) {
+    return {
+      message: "Nada foi salvo: falta rodar a parte 18 do banco (parte-18-bairro-pelo-cep.sql) no Supabase.",
+    };
+  }
   const supabase = await createClient();
   const { error } = await supabase.rpc("replace_delivery_zones", { p_store_id: store.id, p_rows: rows });
-  if (error) return { message: "Não foi possível salvar os bairros. Tente de novo." };
+  if (error) {
+    console.error("saveZones", error.message);
+    return { message: "Não foi possível salvar os bairros. Nada foi alterado. Tente de novo." };
+  }
   revalidatePath("/painel", "layout");
-  revalidatePath(`/loja/${store.slug}`);
+  // o site da loja inteiro (cardápio, checkout) usa os bairros
+  revalidatePath(`/loja/${store.slug}`, "layout");
   return { ok: true, message: "Bairros e taxas salvos." };
 }
 

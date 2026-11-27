@@ -40,14 +40,16 @@ export default async function CheckoutPage({ params }: PageProps<"/loja/[slug]/c
         }}
         open={isOpenNow(hours, store.open_override)}
         hours={hours}
+        // bairros desligados ("não atende") vão junto para o checkout avisar e não cobrar "outros bairros"
         zones={zones
-          .filter((z) => z.active)
+          .filter((z) => z.active || !z.catch_all)
           .map((z) => ({
             id: z.id,
             name: z.neighborhood,
             fee: z.fee_cents,
             aliases: z.aliases ?? [],
             catchAll: Boolean(z.catch_all),
+            blocked: !z.active,
           }))}
         menu={menu}
       />

@@ -58,3 +58,13 @@ export const getPublicStore = cache(async (slug: string) => {
   const settings = await getStoreSettings(store.id);
   return { store: store as Store, ...settings };
 });
+
+/**
+ * A parte 18 do banco (outros nomes e "bairro fora da lista") já foi instalada?
+ * Sem ela, salvar os bairros perderia os outros nomes e criaria um bairro "Outros bairros" comum.
+ */
+export async function zonesUpgradeInstalled() {
+  const supabase = await createClient();
+  const { error } = await supabase.from("delivery_zones").select("catch_all, aliases").limit(1);
+  return !error;
+}

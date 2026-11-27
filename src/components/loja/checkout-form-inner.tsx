@@ -53,7 +53,8 @@ type StoreInfo = {
   schedule_days_ahead: number;
 };
 /** catchAll = "outros bairros": taxa da loja para quem não está na lista. */
-type Zone = { id: string; name: string; fee: number; aliases: string[]; catchAll: boolean };
+/** blocked = bairro que a loja marcou como "não atende". */
+type Zone = { id: string; name: string; fee: number; aliases: string[]; catchAll: boolean; blocked?: boolean };
 type Payment = "pix_online" | "pix_whatsapp" | "pix_delivery" | "card_delivery" | "cash";
 
 const CUSTOMER_KEY = "cliente";
@@ -94,7 +95,9 @@ export default function CheckoutFormInner({
   const router = useRouter();
   const cart = useCart(store.slug);
   const [saved] = useState(loadCustomer);
-  const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">(zones.length ? "delivery" : "pickup");
+  const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">(
+    zones.some((z) => !z.blocked) ? "delivery" : "pickup",
+  );
   const [name, setName] = useState(saved.name ?? "");
   const [phone, setPhone] = useState(formatPhone(saved.phone ?? ""));
   // Bairro: vem do CEP (ou o cliente digita) e o bairro de entrega/taxa sai sozinho dele.
@@ -171,7 +174,7 @@ export default function CheckoutFormInner({
   const unavailable = lines.filter((l) => !l.available);
   const subtotal = lines.filter((l) => l.available).reduce((n, l) => n + l.unitPriceCents * l.selection.quantity, 0);
   const resolved = useMemo(() => resolveZone(zones, district), [zones, district]);
-  const manualZone = resolved.kind === "match" ? undefined : zones.find((z) => z.id === manualZoneId && !z.catchAll);
+  const manualZone = resolved.kind === "match" ? undefined : zones.find((z) => z.id === manualZoneId && !z.catchAll && !z.blocked);
   const zone = manualZone ?? resolved.zone ?? undefined;
   const zoneId = zone?.id ?? "";
   const fee = fulfillment === "delivery" ? (zone?.fee ?? 0) : 0;
@@ -483,7 +486,7 @@ export default function CheckoutFormInner({
               onClick={() => setFulfillment("delivery")}
               icon={<Bike className="size-5" />}
               label="Entrega"
-              disabled={zones.length === 0}
+              disabled={!zones.some((z) => !z.blocked)}
             />
             <Option
               selected={fulfillment === "pickup"}
@@ -624,7 +627,7 @@ export default function CheckoutFormInner({
                 district={district}
                 zone={zone}
                 kind={manualZone ? "manual" : resolved.kind}
-                listedZones={zones.filter((z) => !z.catchAll)}
+                listedZones={resolved.kind === "blocked" ? [] : zones.filter((z) => !z.catchAll && !z.blocked)}
                 showZoneList={showZoneList}
                 onShowZoneList={() => setShowZoneList(true)}
                 onPickZone={setManualZoneId}
@@ -971,7 +974,7 @@ function DeliveryFeeNote({
   storeName: string;
   district: string;
   zone: Zone | undefined;
-  kind: "match" | "fallback" | "manual" | "none";
+  kind: "match" | "fallback" | "manual" | "blocked" | "none";
   listedZones: Zone[];
   showZoneList: boolean;
   onShowZoneList: () => void;
