@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bike, Bell, ExternalLink, FlaskConical, Rocket } from "lucide-react";
+import { Bike, Bell, ChefHat, ExternalLink, FlaskConical, Rocket } from "lucide-react";
 import { leaveDemo, simulateDemoOrder } from "@/app/demo/actions";
 import { Button } from "@/components/ui/button";
 
@@ -39,6 +39,14 @@ export function DemoBar({ storeHref, courierHref }: { storeHref: string; courier
             className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-stone-600 px-3 text-sm font-semibold hover:bg-stone-800"
           >
             <ExternalLink className="size-4" /> Ver como cliente
+          </a>
+          <a
+            href="/cozinha"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-stone-600 px-3 text-sm font-semibold hover:bg-stone-800"
+          >
+            <ChefHat className="size-4" /> Ver cozinha (KDS)
           </a>
           {courierHref ? (
             <a

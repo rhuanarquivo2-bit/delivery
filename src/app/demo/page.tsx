@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Bike, Check, LayoutDashboard, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Bike, Check, ChefHat, LayoutDashboard, ShoppingBag } from "lucide-react";
 import { startDemo } from "@/app/demo/actions";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -26,6 +26,11 @@ const ROLES = [
     icon: ShoppingBag,
     who: "Cliente",
     items: ["Cardápio com pizza meio a meio", "Cupom BEMVINDO e entrega grátis", "Pagar com Pix (simulado)", "Acompanhar o pedido pelo link"],
+  },
+  {
+    icon: ChefHat,
+    who: "Cozinha",
+    items: ["Tela da cozinha (KDS) para tablet ou TV", "Cronômetro e alerta de atraso", "Tocar no item para riscar", "Som de pedido novo e de cancelado"],
   },
   {
     icon: Bike,
@@ -71,7 +76,7 @@ export default async function DemoPage({ searchParams }: PageProps<"/demo">) {
           <span className="text-sm text-muted-foreground">Sem cadastro, sem cartão.</span>
         </form>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
+        <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {ROLES.map(({ icon: Icon, who, items }) => (
             <section key={who} className="rounded-2xl border border-border bg-card p-6">
               <span className="inline-flex size-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
