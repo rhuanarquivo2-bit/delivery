@@ -6,6 +6,7 @@ import {
   Bike,
   Camera,
   Check,
+  ChefHat,
   ClipboardList,
   MessageCircle,
   Printer,
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: { absolute: `${APP_NAME}: delivery próprio, sem comissão` },
-  description: `${APP_TAGLINE}. Cardápio por foto, Pix na hora, painel de pedidos, motoboys e financeiro.`,
+  description: `${APP_TAGLINE}. Cardápio por foto, Pix na hora, painel de pedidos, tela da cozinha (KDS), motoboys e financeiro.`,
 };
 
 const STEPS = [
@@ -69,6 +70,19 @@ const FEATURES = [
     image: { src: "/vendas/painel.png", alt: "Painel de pedidos da loja", phone: false },
   },
   {
+    icon: ChefHat,
+    eyebrow: "Tela da cozinha (KDS)",
+    badge: "Novo · já disponível",
+    title: "A cozinha vê o pedido na hora, sem papel",
+    text: "Coloque um tablet ou uma TV na cozinha: o pedido aparece sozinho com os itens em letra grande, sabores, adicionais e observações em destaque. Cada pedido tem cronômetro e fica vermelho quando atrasa. A cozinha toca em \"Pronto\" e o cliente é avisado no celular.",
+    bullets: [
+      "Pedido novo com som e cancelado em destaque",
+      "Tocar no item risca ele em todas as telas",
+      "Link próprio para o tablet, sem a senha do painel",
+    ],
+    image: { src: "/vendas/cozinha.png", alt: "Tela da cozinha com os pedidos em preparo", phone: false },
+  },
+  {
     icon: Bike,
     eyebrow: "Motoboys",
     title: "Cada motoboy com o próprio site de entregas",
@@ -107,6 +121,7 @@ const PLAN_ITEMS = [
   "Pix na hora direto na sua conta",
   "Pagamento na entrega: cartão, Pix e dinheiro com troco",
   "Painel de pedidos ao vivo e comprovante",
+  "Tela da cozinha (KDS) para tablet ou TV",
   "Motoboys com site próprio e acerto do dia",
   "Financeiro com totais por forma de pagamento",
   "Pedidos ilimitados, sem comissão",
@@ -128,6 +143,10 @@ const FAQ = [
   {
     q: "E se o cliente quiser pagar na entrega?",
     a: "Tem cartão, Pix e dinheiro na entrega. Se for em dinheiro, o cliente informa o troco e o motoboy já sai sabendo quanto levar.",
+  },
+  {
+    q: "Tem tela para a cozinha?",
+    a: "Tem, e já está disponível. A tela da cozinha (KDS) funciona em qualquer tablet, TV ou computador pelo navegador: os pedidos aparecem sozinhos, com cronômetro, alerta de atraso e som. Você pode abrir com o seu login ou com um link próprio da cozinha, sem a senha do painel.",
   },
   {
     q: "Posso usar com o iFood ou outro aplicativo?",
@@ -184,14 +203,22 @@ export default function Home() {
       <section className="relative overflow-hidden">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-20 pt-14 md:grid-cols-[1.1fr_1fr] md:pt-20">
           <div>
-            <p className="mb-5 inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
-              Para pizzarias, hamburguerias e lanchonetes
-            </p>
+            <div className="mb-5 flex flex-wrap gap-2">
+              <p className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
+                Para pizzarias, hamburguerias e lanchonetes
+              </p>
+              <a
+                href="#cozinha"
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-200"
+              >
+                <ChefHat className="size-3.5" /> Novo: tela da cozinha (KDS)
+              </a>
+            </div>
             <h1 className="text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">
               Seu delivery próprio. Sem comissão por pedido.
             </h1>
             <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-              Cardápio digital bonito, Pix na hora direto na sua conta, painel de pedidos, motoboys e financeiro. Tudo
+              Cardápio digital bonito, Pix na hora direto na sua conta, painel de pedidos, tela da cozinha, motoboys e financeiro. Tudo
               pronto em uma tarde, a partir de uma foto do seu cardápio.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -248,8 +275,13 @@ export default function Home() {
         {FEATURES.map((f, i) => (
           <article key={f.title} className="grid items-center gap-10 md:grid-cols-2">
             <div className={cn(i % 2 === 1 && "md:order-2")}>
-              <p className="flex items-center gap-2 text-sm font-semibold text-brand">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-brand">
                 <f.icon className="size-4" /> {f.eyebrow}
+                {"badge" in f && f.badge ? (
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                    {f.badge}
+                  </span>
+                ) : null}
               </p>
               <h3 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">{f.title}</h3>
               <p className="mt-3 text-muted-foreground">{f.text}</p>
@@ -265,7 +297,7 @@ export default function Home() {
               {f.image.phone ? (
                 <Phone className="w-64" src={f.image.src} alt={f.image.alt} />
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+                <div id={"badge" in f ? "cozinha" : undefined} className="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
                   <Image src={f.image.src} alt={f.image.alt} width={1366} height={800} className="h-auto w-full" />
                 </div>
               )}
@@ -347,6 +379,7 @@ export default function Home() {
             {[
               ["Dono da loja", "Painel, financeiro, promoções e motoboys"],
               ["Cliente", "Cardápio, cupom e Pix pelo celular"],
+              ["Cozinha", "Pedidos na tela da cozinha (KDS), com cronômetro"],
               ["Motoboy", "Entregas, troco e ganhos do dia"],
             ].map(([who, what]) => (
               <li key={who} className="flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Bike, Camera, ClipboardList, ShoppingBag, Wallet, Ticket } from "lucide-react";
+import { ArrowRight, Bike, Camera, ChefHat, ClipboardList, ShoppingBag, Wallet, Ticket } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** Roteiro sugerido para quem está testando o sistema. */
@@ -17,6 +17,12 @@ export function DemoTour({ storeHref }: { storeHref: string }) {
       title: "Receba o pedido no painel",
       text: "Ative o som, aceite o pedido, escolha o motoboy e imprima o comprovante.",
       href: "/painel/pedidos",
+    },
+    {
+      icon: ChefHat,
+      title: "Abra a tela da cozinha (KDS)",
+      text: "Pedidos com cronômetro e alerta de atraso. Toque nos itens para riscar e marque como pronto.",
+      href: "/cozinha",
     },
     {
       icon: Bike,
