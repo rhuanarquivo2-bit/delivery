@@ -97,6 +97,8 @@ export type MenuOption = {
 export type OptionGroup = {
   id: string;
   category_id: string;
+  /** Grupo de um produto só (ex.: "Sabor" do Refrigerante Lata). null = vale para a categoria toda. */
+  product_id?: string | null;
   name: string;
   min_select: number;
   max_select: number;
@@ -116,6 +118,8 @@ export type Product = {
   active: boolean;
   sort_order: number;
   prices: ProductPrice[];
+  /** Escolhas só deste produto (ex.: sabor do refrigerante). */
+  groups?: OptionGroup[];
   /** Promoções valendo agora (só no site do cliente). */
   promos?: LivePromo[];
 };
@@ -143,7 +147,8 @@ export type PaymentMethod = "pix_online" | "pix_whatsapp" | "pix_delivery" | "ca
 /** on_delivery = paga na entrega; awaiting/expired = Pix online ainda não pago (não entra no painel). */
 export type PaymentStatus = "on_delivery" | "awaiting" | "paid" | "expired";
 
-export type OrderItemOption = { group: string; name: string; price_cents: number };
+/** `choice`: escolha do próprio produto (ex.: Sabor: Coca-Cola), mostrada sem o "+". */
+export type OrderItemOption = { group: string; name: string; price_cents: number; choice?: boolean };
 
 export type OrderItem = {
   id?: string;

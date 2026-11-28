@@ -149,6 +149,11 @@ export function KitchenTicket({
                   {flavors ? (
                     <span className={cn("mt-0.5 block font-semibold text-zinc-200", done && "line-through")}>{flavors}</span>
                   ) : null}
+                  {item.choices?.length ? (
+                    <span className={cn("mt-0.5 block font-semibold text-zinc-100", done && "line-through")}>
+                      {item.choices.join(" · ")}
+                    </span>
+                  ) : null}
                   {item.options.length ? (
                     <span className={cn("mt-0.5 block text-zinc-300", done && "line-through")}>
                       {item.options.map((o) => `+ ${o}`).join("   ")}

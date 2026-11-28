@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import type { CategorySize, Product } from "@/lib/types";
 import { keepValuesOnSubmit } from "@/lib/use-keep-values-submit";
 import { DeleteButton } from "./delete-button";
+import { choicesPayload, ProductChoices, toChoiceRows, type ChoiceGroupRow } from "./product-choices";
 
 type CategoryChoice = { id: string; name: string; has_sizes: boolean; sizes: CategorySize[] };
 
@@ -40,6 +41,7 @@ export function ProductEditor({
   );
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [choices, setChoices] = useState<ChoiceGroupRow[]>(() => toChoiceRows(product?.groups));
 
   const category = categories.find((c) => c.id === categoryId) ?? categories[0];
 
@@ -52,6 +54,7 @@ export function ProductEditor({
     price,
     prices: category.sizes.map((s) => ({ size_id: s.id, price: sizePrices[s.id] ?? "" })),
     image_url: imageUrl,
+    groups: choicesPayload(choices),
   });
 
   const shownImage = preview ?? imageUrl;
@@ -180,6 +183,8 @@ export function ProductEditor({
             </label>
           </CardContent>
         </Card>
+
+        <ProductChoices groups={choices} onChange={setChoices} />
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" size="lg" disabled={pending}>

@@ -139,9 +139,15 @@ function KitchenCopy({ order }: { order: Order }) {
               {item.size_name ? ` (${item.size_name})` : ""}
             </p>
             {item.flavors?.length && item.flavors.length > 1 ? <p>Sabores: {item.flavors.join(" + ")}</p> : null}
-            {item.options.map((o, j) => (
-              <p key={j}>+ {o.name}</p>
-            ))}
+            {item.options.map((o, j) =>
+              o.choice ? (
+                <p key={j} className="font-bold">
+                  {o.group}: {o.name}
+                </p>
+              ) : (
+                <p key={j}>+ {o.name}</p>
+              ),
+            )}
             {item.notes ? <p className="font-bold">» {item.notes}</p> : null}
           </li>
         ))}
