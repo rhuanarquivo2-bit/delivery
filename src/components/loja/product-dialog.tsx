@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/input";
 import type { CartLine } from "@/lib/cart";
-import { activePromoName, optionErrors, priceForSize, unitPrice, type CartSelection } from "@/lib/pricing";
+import { activePromoName, groupsFor, optionErrors, priceForSize, unitPrice, type CartSelection } from "@/lib/pricing";
 import { promoPrice } from "@/lib/promotions";
 import type { Category, Product } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
@@ -34,7 +34,11 @@ export function ProductDialog({
     availableSizes.length ? availableSizes[availableSizes.length - 1].id : null,
   );
   const [flavorIds, setFlavorIds] = useState<string[]>([]);
-  const [optionIds, setOptionIds] = useState<string[]>([]);
+  const groups = useMemo(() => groupsFor(category, product).filter((g) => g.options.length), [category, product]);
+  // escolha obrigatória com uma opção só (ex.: só tem um sabor hoje): já vem marcada
+  const [optionIds, setOptionIds] = useState<string[]>(() =>
+    groups.filter((g) => g.min_select === 1 && g.options.length === 1).map((g) => g.options[0].id),
+  );
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -48,18 +52,18 @@ export function ProductDialog({
   const validFlavors = flavorIds.filter((id) => flavorChoices.some((p) => p.id === id)).slice(0, maxFlavors - 1);
 
   const selection: CartSelection = { productId: product.id, sizeId, flavorIds: validFlavors, optionIds, quantity, notes };
-  const unit = unitPrice(category, selection);
-  const fullUnit = unitPrice(category, selection, { withPromos: false });
+  const unit = unitPrice(category, selection, { partial: true });
+  const fullUnit = unitPrice(category, selection, { withPromos: false, partial: true });
   const promo = activePromoName(category, product);
   const sizePrice = (p: Product, id: string) => {
     const raw = priceForSize(p, id);
     return raw === null ? null : promoPrice(raw, p.promos).price;
   };
-  const errors = useMemo(() => optionErrors(category, optionIds), [category, optionIds]);
+  const errors = useMemo(() => optionErrors(category, optionIds, product), [category, optionIds, product]);
   const hasErrors = Object.keys(errors).length > 0 || unit === null;
 
   const toggleOption = (groupId: string, optionId: string, single: boolean) => {
-    const group = category.groups.find((g) => g.id === groupId)!;
+    const group = groups.find((g) => g.id === groupId)!;
     const inGroup = new Set(group.options.map((o) => o.id));
     setOptionIds((ids) => {
       if (ids.includes(optionId)) return ids.filter((id) => id !== optionId);
@@ -75,10 +79,15 @@ export function ProductDialog({
       return;
     }
     const flavorNames = validFlavors.map((id) => category.products.find((p) => p.id === id)!.name);
-    const allOptions = category.groups.flatMap((g) => g.options);
+    // escolhas do produto aparecem como "Sabor: Coca-Cola"; adicionais da categoria só com o nome
+    const chosen = groups.flatMap((g) =>
+      g.options
+        .filter((o) => optionIds.includes(o.id))
+        .map((o) => (g.product_id ? `${g.name}: ${o.name}` : o.name)),
+    );
     const details = [
       ...(flavorNames.length ? [`Sabores: ${[product.name, ...flavorNames].join(" + ")}`] : []),
-      ...optionIds.map((id) => allOptions.find((o) => o.id === id)?.name).filter(Boolean) as string[],
+      ...chosen,
       ...(notes.trim() ? [`Obs.: ${notes.trim()}`] : []),
     ];
     onAdd({
@@ -152,16 +161,24 @@ export function ProductDialog({
             </Section>
           ) : null}
 
-          {category.groups
-            .filter((g) => g.options.length)
-            .map((g) => {
+          {groups.map((g) => {
               const single = g.max_select === 1;
+              // sabor sem diferença de preço não mostra "Grátis" (o preço já está no produto)
+              const choice = Boolean(g.product_id);
               return (
                 <Section
                   key={g.id}
                   title={g.name}
                   badge={g.min_select > 0 ? "Obrigatório" : undefined}
-                  subtitle={single ? undefined : `Escolha até ${g.max_select}`}
+                  subtitle={
+                    single
+                      ? choice && g.min_select > 0 && !(showErrors && errors[g.id])
+                        ? "Escolha 1 opção"
+                        : undefined
+                      : g.min_select > 1
+                        ? `Escolha de ${g.min_select} a ${g.max_select}`
+                        : `Escolha até ${g.max_select}`
+                  }
                   error={showErrors ? errors[g.id] : undefined}
                 >
                   {g.options.map((o) => (
@@ -171,7 +188,7 @@ export function ProductDialog({
                       checked={optionIds.includes(o.id)}
                       onChange={() => toggleOption(g.id, o.id, single)}
                       label={o.name}
-                      price={o.price_cents}
+                      price={choice && !o.price_cents ? null : o.price_cents}
                       plus
                     />
                   ))}

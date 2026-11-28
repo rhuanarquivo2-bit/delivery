@@ -31,21 +31,29 @@ export async function getMenu(storeId: string, { publicOnly = false } = {}): Pro
       .map(({ name, kind, value }) => ({ name, kind, value }));
 
   const categories = (data as Category[])
-    .map((c) => ({
-      ...c,
-      sizes: [...c.sizes].sort(bySort),
-      groups: [...c.groups]
+    .map((c) => {
+      const groups = [...c.groups]
         .sort(bySort)
         .map((g) => ({
           ...g,
           options: [...g.options].sort(bySort).filter((o) => !publicOnly || o.active),
-        })),
-      products: [...c.products]
-        .sort(bySort)
-        .filter((p) => !publicOnly || p.active)
-        .filter((p) => !publicOnly || (c.has_sizes ? p.prices.length > 0 : p.price_cents !== null))
-        .map((p) => (publicOnly ? { ...p, promos: promosFor(p.id, c.id) } : p)),
-    }))
+        }));
+      // Grupos com product_id são escolhas de um produto só (ex.: sabor do refrigerante).
+      const ofProduct = (id: string) => groups.filter((g) => g.product_id === id);
+      return {
+        ...c,
+        sizes: [...c.sizes].sort(bySort),
+        groups: groups.filter((g) => !g.product_id),
+        products: [...c.products]
+          .sort(bySort)
+          .map((p) => ({ ...p, groups: ofProduct(p.id) }))
+          .filter((p) => !publicOnly || p.active)
+          .filter((p) => !publicOnly || (c.has_sizes ? p.prices.length > 0 : p.price_cents !== null))
+          // escolha obrigatória sem nenhuma opção disponível (todos os sabores acabaram): sai do site
+          .filter((p) => !publicOnly || p.groups.every((g) => g.options.length >= g.min_select))
+          .map((p) => (publicOnly ? { ...p, promos: promosFor(p.id, c.id) } : p)),
+      };
+    })
     .sort(bySort);
 
   return publicOnly ? categories.filter((c) => c.active && c.products.length > 0) : categories;

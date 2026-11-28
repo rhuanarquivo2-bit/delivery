@@ -34,6 +34,48 @@ const optionalMoney = z.string().transform((v, ctx) => {
 });
 const id = z.string().uuid().or(z.literal("")).optional();
 
+// Grupos de opções: os adicionais da categoria e as escolhas de um produto (ex.: sabor).
+const groupsSchema = z
+  .array(
+    z.object({
+      id,
+      name: z.string().trim().min(1, "Dê um nome a cada grupo de opções.").max(60),
+      min_select: z.number().int().min(0).max(20),
+      max_select: z.number().int().min(1).max(20),
+      options: z
+        .array(
+          z.object({
+            id,
+            name: z.string().trim().min(1, "Dê um nome a cada opção.").max(60),
+            price: money,
+            active: z.boolean(),
+          }),
+        )
+        .min(1, "Cada grupo precisa de pelo menos uma opção.")
+        .max(60),
+    }),
+  )
+  .max(15)
+  .superRefine((groups, ctx) => {
+    for (const g of groups) {
+      if (g.min_select > g.max_select) {
+        ctx.addIssue({ code: "custom", message: `No grupo "${g.name}", o mínimo é maior que o máximo.` });
+      }
+      if (g.min_select > g.options.length) {
+        ctx.addIssue({ code: "custom", message: `O grupo "${g.name}" exige mais opções do que tem.` });
+      }
+    }
+  });
+
+const groupsPayload = (groups: z.output<typeof groupsSchema>) =>
+  groups.map((g) => ({
+    id: g.id || null,
+    name: g.name,
+    min_select: g.min_select,
+    max_select: g.max_select,
+    options: g.options.map((o) => ({ id: o.id || null, name: o.name, price_cents: o.price, active: o.active })),
+  }));
+
 // ---------------------------------------------------------------------------
 // Categorias
 // ---------------------------------------------------------------------------
@@ -54,39 +96,11 @@ const categorySchema = z
         }),
       )
       .max(10),
-    groups: z
-      .array(
-        z.object({
-          id,
-          name: z.string().trim().min(1, "Dê um nome a cada grupo de adicionais.").max(60),
-          min_select: z.number().int().min(0).max(20),
-          max_select: z.number().int().min(1).max(20),
-          options: z
-            .array(
-              z.object({
-                id,
-                name: z.string().trim().min(1, "Dê um nome a cada opção.").max(60),
-                price: money,
-                active: z.boolean(),
-              }),
-            )
-            .min(1, "Cada grupo de adicionais precisa de pelo menos uma opção.")
-            .max(60),
-        }),
-      )
-      .max(15),
+    groups: groupsSchema,
   })
   .superRefine((c, ctx) => {
     if (c.has_sizes && c.sizes.length === 0) {
       ctx.addIssue({ code: "custom", message: "Cadastre pelo menos um tamanho." });
-    }
-    for (const g of c.groups) {
-      if (g.min_select > g.max_select) {
-        ctx.addIssue({ code: "custom", message: `No grupo "${g.name}", o mínimo é maior que o máximo.` });
-      }
-      if (g.min_select > g.options.length) {
-        ctx.addIssue({ code: "custom", message: `O grupo "${g.name}" exige mais opções do que tem.` });
-      }
     }
   });
 
@@ -113,13 +127,7 @@ export async function saveCategory(_prev: MenuFormState, formData: FormData): Pr
       has_sizes: c.has_sizes,
       half_price_rule: c.half_price_rule,
       sizes: c.has_sizes ? c.sizes.map((s) => ({ id: s.id || null, name: s.name, max_flavors: s.max_flavors })) : [],
-      groups: c.groups.map((g) => ({
-        id: g.id || null,
-        name: g.name,
-        min_select: g.min_select,
-        max_select: g.max_select,
-        options: g.options.map((o) => ({ id: o.id || null, name: o.name, price_cents: o.price, active: o.active })),
-      })),
+      groups: groupsPayload(c.groups),
     },
   });
   if (error) return { message: "Não foi possível salvar a categoria. Tente de novo." };
@@ -147,6 +155,8 @@ const productSchema = z.object({
   price: optionalMoney,
   prices: z.array(z.object({ size_id: z.string().uuid(), price: optionalMoney })),
   image_url: z.string().nullable(),
+  /** Escolhas só deste produto (ex.: sabor do refrigerante). */
+  groups: groupsSchema.default([]),
 });
 
 const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -201,6 +211,7 @@ export async function saveProduct(_prev: MenuFormState, formData: FormData): Pro
       prices: category.has_sizes
         ? p.prices.filter((x) => x.price !== null).map((x) => ({ size_id: x.size_id, price_cents: x.price }))
         : [],
+      groups: groupsPayload(p.groups),
     },
   });
   if (error) return { message: "Não foi possível salvar o produto. Tente de novo." };

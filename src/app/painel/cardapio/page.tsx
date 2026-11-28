@@ -104,6 +104,17 @@ export default async function CardapioPage({ searchParams }: PageProps<"/painel/
                   {product.description ? (
                     <p className="truncate text-xs text-muted-foreground">{product.description}</p>
                   ) : null}
+                  {product.groups?.map((g) => (
+                    <p key={g.id} className="truncate text-xs text-muted-foreground">
+                      {g.name}:{" "}
+                      {g.options.map((o, i) => (
+                        <span key={o.id} className={o.active ? undefined : "line-through opacity-70"}>
+                          {i ? ", " : ""}
+                          {o.name}
+                        </span>
+                      ))}
+                    </p>
+                  ))}
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
                   {category.has_sizes ? (

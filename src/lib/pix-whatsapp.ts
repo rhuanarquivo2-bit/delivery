@@ -37,7 +37,9 @@ export function pixWhatsappMessage(o: PixWhatsappOrder) {
   for (const item of o.items) {
     lines.push(`${item.quantity}x ${item.product_name}${item.size_name ? ` (${item.size_name})` : ""} - ${formatBRL(item.total_cents)}`);
     if (item.flavors?.length) lines.push(`   Sabores: ${item.flavors.join(" + ")}`);
-    if (item.options.length) lines.push(`   + ${item.options.map((op) => op.name).join(", ")}`);
+    for (const op of item.options.filter((op) => op.choice)) lines.push(`   ${op.group}: ${op.name}`);
+    const extras = item.options.filter((op) => !op.choice);
+    if (extras.length) lines.push(`   + ${extras.map((op) => op.name).join(", ")}`);
     if (item.notes) lines.push(`   Obs.: ${item.notes}`);
   }
   lines.push("", `Subtotal: ${formatBRL(o.subtotalCents)}`);

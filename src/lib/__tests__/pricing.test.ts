@@ -86,6 +86,58 @@ describe("adicionais", () => {
   });
 });
 
+describe("escolha do produto (sabor do refrigerante)", () => {
+  const sabor = {
+    id: "sabor",
+    category_id: "bebidas",
+    product_id: "lata",
+    name: "Sabor",
+    min_select: 1,
+    max_select: 1,
+    sort_order: 0,
+    options: [
+      { id: "coca", group_id: "sabor", name: "Coca-Cola", price_cents: 0, active: true, sort_order: 0 },
+      { id: "zero", group_id: "sabor", name: "Coca Zero", price_cents: 50, active: true, sort_order: 1 },
+    ],
+  };
+  const lata = {
+    id: "lata",
+    category_id: "bebidas",
+    name: "Refrigerante Lata",
+    description: null,
+    image_url: null,
+    price_cents: 700,
+    active: true,
+    sort_order: 0,
+    prices: [],
+    groups: [sabor],
+  };
+  const agua = { ...lata, id: "agua", name: "Água", price_cents: 350, groups: [] };
+  const bebidas = {
+    ...pizzas,
+    id: "bebidas",
+    has_sizes: false,
+    sizes: [],
+    groups: [],
+    products: [lata, agua],
+  };
+  const sel = { ...base, productId: "lata", sizeId: null };
+
+  it("exige o sabor só no produto que tem a escolha", () => {
+    expect(optionErrors(bebidas, [], lata)).toEqual({ sabor: "Escolha 1 opção." });
+    expect(optionErrors(bebidas, ["coca"], lata)).toEqual({});
+    expect(optionErrors(bebidas, [], agua)).toEqual({});
+  });
+
+  it("soma a diferença do sabor e não calcula sem sabor ou com sabor que acabou", () => {
+    expect(unitPrice(bebidas, { ...sel, optionIds: ["coca"] })).toBe(700);
+    expect(unitPrice(bebidas, { ...sel, optionIds: ["zero"] })).toBe(750);
+    expect(unitPrice(bebidas, sel)).toBeNull();
+    expect(unitPrice(bebidas, { ...sel, optionIds: ["fanta-que-acabou"] })).toBeNull();
+    expect(unitPrice(bebidas, { ...sel, productId: "agua" })).toBe(350);
+  });
+});
+
 describe("troco e status", () => {
   it("calcula o troco", () => {
     expect(changeDue(10530, 15000)).toBe(4470);

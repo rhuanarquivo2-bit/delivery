@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Flame, Search, ShoppingBag, Tag } from "lucide-react";
+import { Flame, Plus, Search, ShoppingBag, Tag } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { useCart } from "@/lib/cart";
 import { activePromoName, discountPercent, startingPrice } from "@/lib/pricing";
@@ -136,13 +136,21 @@ export function StoreMenu({
                 const promo = activePromoName(category, product);
                 const off = discountPercent(full, from);
                 const popular = bestSellers.includes(product.id);
+                // sem descrição, mostra as opções da escolha (ex.: "Coca-Cola, Guaraná, Fanta")
+                const choices = product.groups?.find((g) => g.min_select > 0 && g.options.length);
+                const subtitle =
+                  product.description ?? (choices ? choices.options.map((o) => o.name).join(", ") : null);
+                const compact = !product.image_url;
                 return (
                   <button
                     key={product.id}
                     onClick={() => setSelected({ category, product })}
-                    className="flex cursor-pointer gap-3 rounded-2xl border border-border bg-card p-3 text-left transition hover:border-brand/40 hover:shadow-sm"
+                    className={cn(
+                      "flex cursor-pointer gap-3 rounded-2xl border border-border bg-card text-left transition hover:border-brand/40 hover:shadow-sm",
+                      compact ? "items-center px-4 py-3" : "p-3",
+                    )}
                   >
-                    <div className="flex min-w-0 flex-1 flex-col py-1">
+                    <div className={cn("flex min-w-0 flex-1 flex-col", !compact && "py-1")}>
                       {popular || promo ? (
                         <div className="mb-1.5 flex flex-wrap gap-1">
                           {popular ? (
@@ -158,11 +166,23 @@ export function StoreMenu({
                         </div>
                       ) : null}
                       <p className="font-semibold leading-snug">{product.name}</p>
-                      {product.description ? (
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
+                      {subtitle ? (
+                        <p
+                          className={cn(
+                            "mt-0.5 text-sm text-muted-foreground",
+                            compact ? "line-clamp-1" : "mt-1 line-clamp-2",
+                          )}
+                        >
+                          {subtitle}
+                        </p>
                       ) : null}
                       {from !== null ? (
-                        <p className="mt-auto flex flex-wrap items-baseline gap-x-1.5 pt-2 text-sm font-semibold">
+                        <p
+                          className={cn(
+                            "flex flex-wrap items-baseline gap-x-1.5 text-sm font-semibold",
+                            compact ? "pt-1" : "mt-auto pt-2",
+                          )}
+                        >
                           {category.has_sizes && product.prices.length > 1 ? (
                             <span className="font-normal text-muted-foreground">a partir de</span>
                           ) : null}
@@ -180,9 +200,19 @@ export function StoreMenu({
                           </span>
                         ) : null}
                       </div>
-                    ) : off ? (
-                      <span className="h-fit shrink-0 rounded-md bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">-{off}%</span>
-                    ) : null}
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-2">
+                        {off ? (
+                          <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">-{off}%</span>
+                        ) : null}
+                        <span
+                          aria-hidden
+                          className="flex size-8 items-center justify-center rounded-full border border-border text-brand"
+                        >
+                          <Plus className="size-4" />
+                        </span>
+                      </span>
+                    )}
                   </button>
                 );
               })}

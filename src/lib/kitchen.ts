@@ -11,6 +11,8 @@ export type KitchenItem = {
   product_name: string;
   size_name: string | null;
   flavors: string[] | null;
+  /** Escolhas do produto (ex.: sabor do refrigerante). Vem vazio em banco sem a fase 19. */
+  choices?: string[];
   options: string[];
   notes: string | null;
   /** Riscado pela cozinha (pronto). */

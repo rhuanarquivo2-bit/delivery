@@ -1,5 +1,5 @@
 import { promoPrice } from "./promotions";
-import type { Category, CouponKind, HalfPriceRule, MenuOption, PaymentMethod, Product } from "./types";
+import type { Category, CouponKind, HalfPriceRule, MenuOption, OptionGroup, PaymentMethod, Product } from "./types";
 
 /**
  * Mesma regra do place_order no banco. Aqui é só para mostrar o valor ao cliente;
@@ -38,7 +38,14 @@ function productPrice(product: Product, price: number | null, withPromos: boolea
 export function unitPrice(
   category: Category,
   selection: CartSelection,
-  { withPromos = true }: { withPromos?: boolean } = {},
+  {
+    withPromos = true,
+    partial = false,
+  }: {
+    withPromos?: boolean;
+    /** Ainda escolhendo (tela do produto): mostra o preço mesmo faltando uma escolha obrigatória. */
+    partial?: boolean;
+  } = {},
 ): number | null {
   const product = category.products.find((p) => p.id === selection.productId);
   if (!product) return null;
@@ -55,12 +62,18 @@ export function unitPrice(
   }
   if (base === null) return null;
 
-  const options = category.groups.flatMap((g) => g.options);
-  const extras = selection.optionIds
-    .map((id) => options.find((o) => o.id === id))
-    .filter((o): o is MenuOption => Boolean(o))
-    .reduce((sum, o) => sum + o.price_cents, 0);
-  return base + extras;
+  const groups = groupsFor(category, product);
+  const options = groups.flatMap((g) => g.options);
+  const chosen = selection.optionIds.map((id) => options.find((o) => o.id === id));
+  // opção que saiu do cardápio (ex.: sabor que acabou) ou escolha obrigatória faltando: item indisponível
+  if (chosen.some((o) => !o)) return null;
+  if (!partial && Object.keys(optionErrors(category, selection.optionIds, product)).length) return null;
+  return base + (chosen as MenuOption[]).reduce((sum, o) => sum + o.price_cents, 0);
+}
+
+/** Grupos que o cliente escolhe num produto: primeiro os do produto (ex.: Sabor), depois os da categoria. */
+export function groupsFor(category: Category, product: Product | undefined | null): OptionGroup[] {
+  return [...(product?.groups ?? []), ...category.groups];
 }
 
 /** Menor preço de um produto (para mostrar "a partir de" no cardápio). */
@@ -78,9 +91,9 @@ export function activePromoName(category: Category, product: Product) {
 }
 
 /** Problemas na escolha de adicionais, por grupo. */
-export function optionErrors(category: Category, optionIds: string[]) {
+export function optionErrors(category: Category, optionIds: string[], product?: Product | null) {
   const errors: Record<string, string> = {};
-  for (const g of category.groups) {
+  for (const g of groupsFor(category, product)) {
     const count = g.options.filter((o) => optionIds.includes(o.id)).length;
     if (count < g.min_select) {
       errors[g.id] = g.min_select === 1 ? "Escolha 1 opção." : `Escolha pelo menos ${g.min_select}.`;

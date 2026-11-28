@@ -15,8 +15,8 @@ export function OrderItemsList({ order, compact = false }: { order: Order; compa
             </p>
             {item.flavors?.length ? <p className="text-[0.92em]">Sabores: {item.flavors.join(" + ")}</p> : null}
             {item.options.map((o, j) => (
-              <p key={j} className="text-[0.92em]">
-                + {o.name}
+              <p key={j} className={o.choice ? "text-[0.92em] font-semibold" : "text-[0.92em]"}>
+                {o.choice ? `${o.group}: ${o.name}` : `+ ${o.name}`}
                 {o.price_cents ? ` (${formatBRL(o.price_cents)})` : ""}
               </p>
             ))}
